@@ -1,0 +1,116 @@
+@if (IsOpen)
+{
+    <div class="modal-overlay">
+        <div class="modal-card">
+            <h2>@(Editing is null ? "Novo projeto" : "Editar projeto")</h2>
+            <p class="modal-sub">Preencha os dados iniciais — você pode completar o resto depois.</p>
+
+            <EditForm Model="_form" OnValidSubmit="Submeter">
+                <DataAnnotationsValidator />
+
+                <div class="field">
+                    <label for="np-nome">Nome do projeto</label>
+                    <InputText id="np-nome" @bind-Value="_form.Nome" placeholder="Ex: Casa Marina" />
+                    <ValidationMessage For="() => _form.Nome" class="field-error" />
+                </div>
+
+                <div class="field">
+                    <label for="np-cliente">Cliente</label>
+                    <InputText id="np-cliente" @bind-Value="_form.ClienteNome" placeholder="Ex: Fernanda Souza" />
+                    <ValidationMessage For="() => _form.ClienteNome" class="field-error" />
+                </div>
+
+                <div class="field">
+                    <label for="np-endereco">Endereço da obra</label>
+                    <InputText id="np-endereco" @bind-Value="_form.Endereco" placeholder="Ex: Rua das Palmeiras, 120" />
+                </div>
+
+                <div class="field-row">
+                    <div class="field">
+                        <label for="np-inicio">Data de início</label>
+                        <InputDate id="np-inicio" @bind-Value="_form.DataInicio" />
+                        <ValidationMessage For="() => _form.DataInicio" class="field-error" />
+                    </div>
+                    <div class="field">
+                        <label for="np-prazo">Prazo estimado</label>
+                        <InputDate id="np-prazo" @bind-Value="_form.PrazoEstimado" />
+                    </div>
+                </div>
+
+                <div class="field-row">
+                    <div class="field">
+                        <label for="np-valor">Valor total acordado (R$)</label>
+                        <InputNumber id="np-valor" @bind-Value="_form.ValorTotalAcordado" min="0" />
+                        <ValidationMessage For="() => _form.ValorTotalAcordado" class="field-error" />
+                    </div>
+                    <div class="field">
+                        <label for="np-status">Status inicial</label>
+                        <InputSelect id="np-status" @bind-Value="_form.Status">
+                            <option value="@StatusProjeto.Orcamento">Orçamento</option>
+                            <option value="@StatusProjeto.EmAndamento">Em andamento</option>
+                            <option value="@StatusProjeto.Pausado">Pausado</option>
+                            <option value="@StatusProjeto.Concluido">Concluído</option>
+                        </InputSelect>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" @onclick="() => OnClose.InvokeAsync()">Cancelar</button>
+                    <button type="submit" class="primary">@(Editing is null ? "Criar projeto" : "Salvar alterações")</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    private SalvarProjetoRequest _form = new();
+    private ProjetoDto? _lastLoaded;
+    private bool _wasOpen;
+
+    [Parameter]
+    public bool IsOpen { get; set; }
+
+    [Parameter]
+    public ProjetoDto? Editing { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    [Parameter]
+    public EventCallback<SalvarProjetoRequest> OnSubmit { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (!IsOpen)
+        {
+            _wasOpen = false;
+            return;
+        }
+
+        var justOpened = !_wasOpen;
+        _wasOpen = true;
+
+        if (!justOpened && ReferenceEquals(Editing, _lastLoaded))
+        {
+            return;
+        }
+
+        _lastLoaded = Editing;
+        _form = Editing is null
+            ? new SalvarProjetoRequest { DataInicio = DateOnly.FromDateTime(DateTime.Now) }
+            : new SalvarProjetoRequest
+            {
+                Nome = Editing.Nome,
+                ClienteNome = Editing.ClienteNome,
+                Endereco = Editing.Endereco,
+                DataInicio = Editing.DataInicio,
+                PrazoEstimado = Editing.PrazoEstimado,
+                ValorTotalAcordado = Editing.ValorTotalAcordado,
+                Observacoes = Editing.Observacoes,
+                Status = Editing.Status
+            };
+    }
+
+    private Task Submeter() => OnSubmit.InvokeAsync(_form);
+}

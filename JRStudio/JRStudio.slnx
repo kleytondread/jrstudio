@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Jess.Application/Jess.Application.csproj" />
+    <Project Path="src/Jess.Desktop/Jess.Desktop.csproj" />
+    <Project Path="src/Jess.Entities/Jess.Entities.csproj" />
+    <Project Path="src/Jess.Infrastructure/Jess.Infrastructure.csproj" />
+    <Project Path="src/Jess.UI/Jess.UI.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Jess.Application.Tests/Jess.Application.Tests.csproj" />
+    <Project Path="tests/Jess.Entities.Tests/Jess.Entities.Tests.csproj" />
+    <Project Path="tests/Jess.Infrastructure.Tests/Jess.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>

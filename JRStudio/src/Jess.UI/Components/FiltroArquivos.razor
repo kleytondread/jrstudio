@@ -1,0 +1,112 @@
+@inject IJSRuntime JsRuntime
+
+<div class="field" style="max-width:360px;margin-bottom:10px">
+    <input type="text" placeholder="Buscar por nome do arquivo ou tag..." value="@TermoBusca" @oninput="OnBuscaInput" />
+</div>
+
+<div @ref="_tagContainerRef" class="tag-row-collapsible" style="@EstiloAltura">
+    <div class="tag-row" style="margin-bottom:0">
+        @foreach (var chip in Chips())
+        {
+            <span class="tag-chip @(chip.Tag == TagAtiva ? "active" : "")" @onclick="() => Selecionar(chip.Tag)">@chip.Label</span>
+        }
+    </div>
+</div>
+
+@if (_totalLinhas > 1)
+{
+    <div style="text-align:right;margin-bottom:14px">
+        <button class="swimlane-add" @onclick="AlternarExpansao">@(TudoVisivel ? "Mostrar menos" : "Mostrar mais")</button>
+    </div>
+}
+else
+{
+    <div style="margin-bottom:14px"></div>
+}
+
+@code {
+    // .tag-chip: padding 5px (top/bottom) + border 0.5px*2 + altura de linha do texto a 12px.
+    // Definidos como constantes pra manter a conta de "quantas linhas cabem em X px" exata — se o
+    // CSS de .tag-chip mudar (fonte, padding), atualizar junto.
+    private const double AlturaChip = 27;
+    private const double Espacamento = 8;
+
+    // Só usada no max-height visual (nunca na conta de _totalLinhas, que usa a altura real medida via
+    // JS) — cobre pequenas variações de renderização (escala de DPI, métricas de fonte) que faziam a
+    // base da linha de chips ficar cortada pelo overflow:hidden mesmo com a altura "certa" no papel.
+    private const double MargemSeguranca = 4;
+
+    private ElementReference _tagContainerRef;
+    private int _linhasVisiveis = 1;
+    private int _totalLinhas = 1;
+    private bool _medido;
+    private int _ultimaContagemTags = -1;
+    private int _ultimaContagemArquivos = -1;
+
+    [Parameter, EditorRequired]
+    public List<ArquivoDto> Arquivos { get; set; } = [];
+
+    [Parameter, EditorRequired]
+    public List<string> TagsDisponiveis { get; set; } = [];
+
+    [Parameter]
+    public string? TagAtiva { get; set; }
+
+    [Parameter]
+    public EventCallback<string?> OnTagSelecionada { get; set; }
+
+    [Parameter]
+    public string? TermoBusca { get; set; }
+
+    [Parameter]
+    public EventCallback<string?> OnTermoBuscaAlterado { get; set; }
+
+    private bool TudoVisivel => _linhasVisiveis >= _totalLinhas;
+
+    // Antes da primeira medição via JS, força o recolhido pra 1 linha mesmo que _totalLinhas ainda
+    // esteja no valor padrão (1) — sem isso, todas as tags apareceriam sem corte por um instante,
+    // até a medição real rodar e recolher de volta (flash visual desagradável).
+    private string EstiloAltura => _medido && TudoVisivel
+        ? "overflow:hidden"
+        : $"overflow:hidden;max-height:{_linhasVisiveis * AlturaChip + (_linhasVisiveis - 1) * Espacamento + MargemSeguranca}px";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender && TagsDisponiveis.Count == _ultimaContagemTags && Arquivos.Count == _ultimaContagemArquivos)
+        {
+            return;
+        }
+
+        _ultimaContagemTags = TagsDisponiveis.Count;
+        _ultimaContagemArquivos = Arquivos.Count;
+
+        var scrollHeight = await JsRuntime.InvokeAsync<double>("jessInterop.getScrollHeight", _tagContainerRef);
+        var totalLinhas = Math.Max(1, (int)Math.Round((scrollHeight + Espacamento) / (AlturaChip + Espacamento)));
+
+        if (totalLinhas != _totalLinhas || !_medido)
+        {
+            _totalLinhas = totalLinhas;
+            _linhasVisiveis = Math.Min(_linhasVisiveis, _totalLinhas);
+            _medido = true;
+            StateHasChanged();
+        }
+    }
+
+    private List<(string? Tag, string Label)> Chips()
+    {
+        var contagens = TagsDisponiveis
+            .Select(tag => (Tag: tag, Count: Arquivos.Count(a => a.Tags.Contains(tag, StringComparer.OrdinalIgnoreCase))))
+            .OrderByDescending(c => c.Count)
+            .ThenBy(c => c.Tag, StringComparer.OrdinalIgnoreCase);
+
+        var chips = new List<(string? Tag, string Label)> { (null, $"Todos ({Arquivos.Count})") };
+        chips.AddRange(contagens.Select(c => ((string?)c.Tag, $"{c.Tag} ({c.Count})")));
+        return chips;
+    }
+
+    private Task Selecionar(string? tag) => OnTagSelecionada.InvokeAsync(tag);
+
+    private Task OnBuscaInput(ChangeEventArgs e) => OnTermoBuscaAlterado.InvokeAsync(e.Value?.ToString());
+
+    private void AlternarExpansao() => _linhasVisiveis = TudoVisivel ? 1 : Math.Min(_linhasVisiveis + 10, _totalLinhas);
+}

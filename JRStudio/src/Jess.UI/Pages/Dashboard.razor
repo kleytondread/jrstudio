@@ -1,0 +1,163 @@
+@page "/"
+@inject IProjetoService ProjetoService
+@inject ITarefaService TarefaService
+@inject IFinanceiroService FinanceiroService
+@inject IConfiguracaoService ConfiguracaoService
+@inject NavigationManager Navigation
+
+<h1 class="page-title">@Saudacao</h1>
+<p class="page-sub">Aqui está o resumo dos seus projetos hoje.</p>
+
+<div class="metric-grid">
+    <div class="metric-card">
+        <p class="metric-label">Tarefas hoje</p>
+        <p class="metric-value">@(_carregando ? "—" : _tarefasHoje.ToString())</p>
+    </div>
+    <div class="metric-card">
+        <p class="metric-label">A receber este mês</p>
+        <p class="metric-value">@(_carregando ? "—" : _aReceberEsteMes.ToString("C", BrCulture))</p>
+    </div>
+    <div class="metric-card">
+        <p class="metric-label">Projetos ativos</p>
+        <p class="metric-value">@(_carregando ? "—" : _projetosAtivos.ToString())</p>
+    </div>
+</div>
+
+<div class="two-col">
+    <div class="panel">
+        <h3>Tarefas próximas</h3>
+        @if (_carregando)
+        {
+            <p class="tab-placeholder">Carregando...</p>
+        }
+        else if (_tarefasProximas.Count == 0)
+        {
+            <p class="tab-placeholder">Nenhuma tarefa pendente com prazo definido.</p>
+        }
+        else
+        {
+            @foreach (var tarefa in _tarefasProximas)
+            {
+                <div class="list-row" style="@(tarefa.ProjetoId.HasValue ? "cursor:pointer" : "")" @onclick="() => AbrirTarefa(tarefa)">
+                    <span class="prio-dot" style="background:@PrioridadeLabels.CorVariavel(tarefa.Prioridade)"></span>
+                    <span style="flex:1">@tarefa.Titulo — @NomeProjeto(tarefa.ProjetoId)</span>
+                    <span style="color:var(--text-muted)">@RelativoDias(tarefa.Prazo!.Value)</span>
+                </div>
+            }
+        }
+    </div>
+    <div class="panel">
+        <h3>Pagamentos próximos</h3>
+        @if (_carregando)
+        {
+            <p class="tab-placeholder">Carregando...</p>
+        }
+        else if (_pagamentosProximos.Count == 0)
+        {
+            <p class="tab-placeholder">Nenhum pagamento pendente.</p>
+        }
+        else
+        {
+            @foreach (var pagamento in _pagamentosProximos)
+            {
+                <div class="list-row" style="display:block;cursor:pointer" @onclick="() => AbrirPagamento(pagamento)">
+                    <div style="display:flex;justify-content:space-between">
+                        <span>@NomeProjeto(pagamento.ProjetoId)</span>
+                        <span style="color:var(--text-muted)">@RelativoDias(pagamento.DataPrevista.ToDateTime(TimeOnly.MinValue))</span>
+                    </div>
+                    <div style="color:var(--text-secondary);font-size:12px;margin-top:2px">@pagamento.ValorPrevisto.ToString("C", BrCulture)</div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private static readonly System.Globalization.CultureInfo BrCulture = new("pt-BR");
+
+    private bool _carregando = true;
+    private int _projetosAtivos;
+    private int _tarefasHoje;
+    private decimal _aReceberEsteMes;
+    private List<TarefaDto> _tarefasProximas = [];
+    private List<PagamentoDto> _pagamentosProximos = [];
+    private Dictionary<int, string> _nomesProjetos = [];
+    private string? _nomeArquiteto;
+
+    private string Saudacao
+    {
+        get
+        {
+            var saudacao = DateTime.Now.Hour switch
+            {
+                < 12 => "Bom dia",
+                < 18 => "Boa tarde",
+                _ => "Boa noite"
+            };
+
+            return string.IsNullOrWhiteSpace(_nomeArquiteto) ? saudacao : $"{saudacao}, {_nomeArquiteto}";
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var configuracao = await ConfiguracaoService.ObterAsync();
+        _nomeArquiteto = configuracao.NomeArquiteto;
+
+        var projetos = await ProjetoService.ListarAsync();
+        var tarefas = await TarefaService.ListarTodasAsync();
+        var pagamentos = await FinanceiroService.ListarTodosAsync();
+
+        _nomesProjetos = projetos.ToDictionary(p => p.Id, p => p.Nome);
+        _projetosAtivos = projetos.Count(p => p.Status == StatusProjeto.EmAndamento);
+
+        var hoje = DateTime.Today;
+
+        _tarefasHoje = tarefas.Count(t => t.Coluna != ColunaTarefa.Concluido && t.Prazo?.Date == hoje);
+
+        _tarefasProximas = tarefas
+            .Where(t => t.Coluna != ColunaTarefa.Concluido && t.Prazo.HasValue)
+            .OrderBy(t => t.Prazo)
+            .Take(5)
+            .ToList();
+
+        var pagamentosAbertos = pagamentos.Where(p => p.Status != StatusPagamento.Recebido).ToList();
+
+        _aReceberEsteMes = pagamentosAbertos
+            .Where(p => p.DataPrevista.Year == hoje.Year && p.DataPrevista.Month == hoje.Month)
+            .Sum(p => p.ValorPrevisto);
+
+        _pagamentosProximos = pagamentosAbertos
+            .OrderBy(p => p.DataPrevista)
+            .Take(5)
+            .ToList();
+
+        _carregando = false;
+    }
+
+    private void AbrirTarefa(TarefaDto tarefa)
+    {
+        if (tarefa.ProjetoId.HasValue)
+        {
+            Navigation.NavigateTo($"/projetos/{tarefa.ProjetoId.Value}?aba=tarefas");
+        }
+    }
+
+    private void AbrirPagamento(PagamentoDto pagamento) => Navigation.NavigateTo($"/projetos/{pagamento.ProjetoId}?aba=financeiro");
+
+    private string NomeProjeto(int? projetoId) =>
+        projetoId.HasValue && _nomesProjetos.TryGetValue(projetoId.Value, out var nome) ? nome : "—";
+
+    private static string RelativoDias(DateTime data)
+    {
+        var dias = (data.Date - DateTime.Today).Days;
+        return dias switch
+        {
+            < 0 => "atrasado",
+            0 => "hoje",
+            1 => "amanhã",
+            <= 6 => data.ToString("dddd", BrCulture),
+            _ => data.ToString("dd/MM")
+        };
+    }
+}

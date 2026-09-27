@@ -1,0 +1,90 @@
+@if (IsOpen)
+{
+    <div class="modal-overlay">
+        <div class="modal-card">
+            <h2>Editar tags</h2>
+            <p class="modal-sub">@Arquivo?.NomeArquivo</p>
+
+            <div class="tag-row">
+                @foreach (var tag in _tags)
+                {
+                    <span class="tag-chip active" @onclick="() => RemoverTag(tag)">@tag &#10005;</span>
+                }
+                @if (_tags.Count == 0)
+                {
+                    <span class="tab-placeholder">Nenhuma tag ainda.</span>
+                }
+            </div>
+
+            <div class="field">
+                <label for="nova-tag">Adicionar tag (Enter para confirmar)</label>
+                <input id="nova-tag" @bind="_novaTag" @bind:event="oninput" @onkeydown="OnKeyDown" placeholder="Ex: madeira" />
+            </div>
+
+            <div class="modal-actions">
+                <button @onclick="() => OnClose.InvokeAsync()">Cancelar</button>
+                <button class="primary" @onclick="Salvar">Salvar</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<string> _tags = [];
+    private string _novaTag = string.Empty;
+    private ArquivoDto? _lastLoaded;
+    private bool _wasOpen;
+
+    [Parameter]
+    public bool IsOpen { get; set; }
+
+    [Parameter]
+    public ArquivoDto? Arquivo { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    [Parameter]
+    public EventCallback<List<string>> OnSubmit { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (!IsOpen)
+        {
+            _wasOpen = false;
+            return;
+        }
+
+        var justOpened = !_wasOpen;
+        _wasOpen = true;
+
+        if (!justOpened && ReferenceEquals(Arquivo, _lastLoaded))
+        {
+            return;
+        }
+
+        _lastLoaded = Arquivo;
+        _tags = Arquivo?.Tags.ToList() ?? [];
+        _novaTag = string.Empty;
+    }
+
+    private void RemoverTag(string tag) => _tags.Remove(tag);
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter")
+        {
+            return;
+        }
+
+        var valor = _novaTag.Trim();
+        if (valor.Length > 0 && !_tags.Contains(valor, StringComparer.OrdinalIgnoreCase))
+        {
+            _tags.Add(valor);
+        }
+
+        _novaTag = string.Empty;
+    }
+
+    private Task Salvar() => OnSubmit.InvokeAsync(_tags);
+}

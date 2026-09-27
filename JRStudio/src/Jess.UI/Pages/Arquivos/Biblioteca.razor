@@ -1,0 +1,121 @@
+@page "/biblioteca"
+@inject IArquivoService ArquivoService
+@inject IFileDialogService FileDialogService
+@inject ConfirmState ConfirmState
+
+<div class="toolbar">
+    <div>
+        <h1 class="page-title" style="margin-bottom:0">Biblioteca de arquivos</h1>
+        <p class="page-sub" style="margin-bottom:0">Imagens, texturas e referências reutilizáveis entre projetos.</p>
+    </div>
+    <button class="primary" @onclick="ImportarAsync">+ Importar arquivos</button>
+</div>
+
+<FiltroArquivos Arquivos="_arquivos" TagsDisponiveis="_tagsDisponiveis"
+                TagAtiva="@_tagAtiva" OnTagSelecionada="tag => _tagAtiva = tag"
+                TermoBusca="@_termoBusca" OnTermoBuscaAlterado="termo => _termoBusca = termo" />
+
+@if (_carregando)
+{
+    <p class="page-sub">Carregando biblioteca...</p>
+}
+else
+{
+    var lista = ArquivoFiltro.PorBusca(ArquivoFiltro.PorTag(_arquivos, _tagAtiva), _termoBusca);
+    @if (lista.Count == 0)
+    {
+        <p class="page-sub">Nenhum arquivo encontrado.</p>
+    }
+    else
+    {
+        <div class="file-grid">
+            @foreach (var arquivo in lista)
+            {
+                <ArquivoCard @key="arquivo.Id" Arquivo="arquivo"
+                             OnFavoritar="() => FavoritarAsync(arquivo)"
+                             OnEditarTags="() => AbrirTags(arquivo)"
+                             OnExcluir="() => ExcluirAsync(arquivo)" />
+            }
+        </div>
+    }
+}
+
+<ArquivoTagsModal IsOpen="_modalTagsAberto" Arquivo="_arquivoEditandoTags" OnClose="() => _modalTagsAberto = false" OnSubmit="SalvarTagsAsync" />
+
+@code {
+    private const string FiltroImportacao =
+        "Imagens e documentos (*.jpg;*.jpeg;*.png;*.gif;*.webp;*.bmp;*.pdf;*.doc;*.docx;*.txt)|*.jpg;*.jpeg;*.png;*.gif;*.webp;*.bmp;*.pdf;*.doc;*.docx;*.txt|Todos os arquivos (*.*)|*.*";
+
+    private List<ArquivoDto> _arquivos = [];
+    private List<string> _tagsDisponiveis = [];
+    private string? _tagAtiva;
+    private string? _termoBusca;
+    private bool _carregando = true;
+
+    private bool _modalTagsAberto;
+    private ArquivoDto? _arquivoEditandoTags;
+
+    protected override async Task OnInitializedAsync() => await CarregarAsync();
+
+    private async Task CarregarAsync()
+    {
+        _carregando = true;
+        _arquivos = (await ArquivoService.ListarAsync()).ToList();
+        _tagsDisponiveis = (await ArquivoService.ListarTagsAsync()).ToList();
+        _carregando = false;
+    }
+
+    private async Task ImportarAsync()
+    {
+        var arquivos = await FileDialogService.EscolherArquivosParaImportarAsync(FiltroImportacao);
+        if (arquivos.Length == 0)
+        {
+            return;
+        }
+
+        foreach (var caminho in arquivos)
+        {
+            await ArquivoService.ImportarAsync(caminho);
+        }
+
+        await CarregarAsync();
+    }
+
+    private async Task FavoritarAsync(ArquivoDto arquivo)
+    {
+        await ArquivoService.AlternarFavoritoAsync(arquivo.Id);
+        await CarregarAsync();
+    }
+
+    private void AbrirTags(ArquivoDto arquivo)
+    {
+        _arquivoEditandoTags = arquivo;
+        _modalTagsAberto = true;
+    }
+
+    private async Task SalvarTagsAsync(List<string> tags)
+    {
+        if (_arquivoEditandoTags is null)
+        {
+            return;
+        }
+
+        await ArquivoService.AtualizarTagsAsync(_arquivoEditandoTags.Id, tags);
+        _modalTagsAberto = false;
+        await CarregarAsync();
+    }
+
+    private async Task ExcluirAsync(ArquivoDto arquivo)
+    {
+        var confirmado = await ConfirmState.ConfirmarAsync(
+            $"Excluir \"{arquivo.NomeArquivo}\" da biblioteca? Essa ação não pode ser desfeita.", "Excluir arquivo");
+
+        if (!confirmado)
+        {
+            return;
+        }
+
+        await ArquivoService.ExcluirAsync(arquivo.Id);
+        await CarregarAsync();
+    }
+}

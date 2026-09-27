@@ -1,0 +1,192 @@
+@inject ITarefaService TarefaService
+@inject ConfirmState ConfirmState
+
+@if (_carregando)
+{
+    <p class="page-sub">Carregando tarefas...</p>
+}
+else
+{
+    @foreach (var fase in FaseLabels.OrdemPadrao)
+    {
+        var tarefasDaFase = _tarefas.Where(t => t.Fase == fase).ToList();
+        var colapsada = _colapsado.GetValueOrDefault(fase);
+        <div class="fase-block">
+            <div class="fase-block-header" @onclick="() => ToggleFase(fase)">
+                <span class="fase-block-chevron">@(colapsada ? "▶" : "▼")</span>
+                <span class="fase-block-title">@FaseLabels.Texto(fase)</span>
+                <span class="fase-block-count">@tarefasDaFase.Count</span>
+            </div>
+            @if (!colapsada)
+            {
+                <div class="fase-block-body">
+                    <div class="fase-scroll">
+                        <div class="fase-cols">
+                            @foreach (var coluna in ColunaLabels.OrdemPadrao)
+                            {
+                                var tarefasDaColuna = tarefasDaFase.Where(t => t.Coluna == coluna).ToList();
+                                var chave = ChaveAdd(fase, coluna);
+                                <div class="fase-col">
+                                    <p class="kcol-title">@ColunaLabels.Texto(coluna) · @tarefasDaColuna.Count</p>
+                                    @foreach (var tarefa in tarefasDaColuna)
+                                    {
+                                        <TaskCard Tarefa="tarefa"
+                                                  OnEdit="() => AbrirEditar(tarefa)"
+                                                  OnDelete="() => Excluir(tarefa)"
+                                                  OnMover="novaColuna => MoverAsync(tarefa, novaColuna)"
+                                                  OnAlterarPrioridade="novaPrioridade => AlterarPrioridadeAsync(tarefa, novaPrioridade)" />
+                                    }
+                                    @if (coluna == ColunaTarefa.AFazer)
+                                    {
+                                        @if (_adicionandoChave == chave)
+                                        {
+                                            <div class="quick-add-row">
+                                                <input @bind="_novoTitulo" @bind:event="oninput"
+                                                       @onkeydown="e => OnQuickAddKeyDown(e, fase, coluna)"
+                                                       @onblur="CancelarAdicionar"
+                                                       placeholder="Título da tarefa" autofocus />
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <button class="swimlane-add" @onclick="() => IniciarAdicionar(fase, coluna)">+ Adicionar tarefa</button>
+                                        }
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+}
+
+<TarefaFormModal IsOpen="_modalAberto" Editing="_editando" OnClose="() => _modalAberto = false" OnSubmit="Salvar" />
+
+@code {
+    private List<TarefaDto> _tarefas = [];
+    private readonly Dictionary<FaseProjeto, bool> _colapsado = new();
+    private bool _carregando = true;
+    private int? _ultimoProjetoId;
+
+    private string? _adicionandoChave;
+    private string _novoTitulo = string.Empty;
+
+    private bool _modalAberto;
+    private TarefaDto? _editando;
+
+    [Parameter, EditorRequired]
+    public int ProjetoId { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_ultimoProjetoId == ProjetoId)
+        {
+            return;
+        }
+
+        _ultimoProjetoId = ProjetoId;
+        _carregando = true;
+        _tarefas = (await TarefaService.ListarPorProjetoAsync(ProjetoId)).ToList();
+        _carregando = false;
+    }
+
+    private void ToggleFase(FaseProjeto fase) => _colapsado[fase] = !_colapsado.GetValueOrDefault(fase);
+
+    private static string ChaveAdd(FaseProjeto fase, ColunaTarefa coluna) => $"{fase}-{coluna}";
+
+    private void IniciarAdicionar(FaseProjeto fase, ColunaTarefa coluna)
+    {
+        _adicionandoChave = ChaveAdd(fase, coluna);
+        _novoTitulo = string.Empty;
+    }
+
+    private void CancelarAdicionar()
+    {
+        _adicionandoChave = null;
+        _novoTitulo = string.Empty;
+    }
+
+    private async Task OnQuickAddKeyDown(KeyboardEventArgs e, FaseProjeto fase, ColunaTarefa coluna)
+    {
+        if (e.Key == "Escape")
+        {
+            CancelarAdicionar();
+            return;
+        }
+
+        if (e.Key != "Enter")
+        {
+            return;
+        }
+
+        var titulo = _novoTitulo.Trim();
+        if (string.IsNullOrWhiteSpace(titulo))
+        {
+            CancelarAdicionar();
+            return;
+        }
+
+        var dto = await TarefaService.CriarRapidaAsync(new CriarTarefaRapidaRequest
+        {
+            ProjetoId = ProjetoId,
+            Fase = fase,
+            Coluna = coluna,
+            Titulo = titulo
+        });
+
+        _tarefas.Add(dto);
+        IniciarAdicionar(fase, coluna);
+    }
+
+    private void AbrirEditar(TarefaDto tarefa)
+    {
+        _editando = tarefa;
+        _modalAberto = true;
+    }
+
+    private async Task Salvar(SalvarTarefaRequest request)
+    {
+        var atualizado = await TarefaService.AtualizarAsync(_editando!.Id, request);
+        var idx = _tarefas.FindIndex(t => t.Id == atualizado.Id);
+        if (idx >= 0)
+        {
+            _tarefas[idx] = atualizado;
+        }
+
+        _modalAberto = false;
+    }
+
+    private async Task MoverAsync(TarefaDto tarefa, ColunaTarefa novaColuna)
+    {
+        var atualizado = await TarefaService.MoverAsync(tarefa.Id, novaColuna);
+        var idx = _tarefas.FindIndex(t => t.Id == atualizado.Id);
+        if (idx >= 0)
+        {
+            _tarefas[idx] = atualizado;
+        }
+    }
+
+    private async Task AlterarPrioridadeAsync(TarefaDto tarefa, PrioridadeTarefa novaPrioridade)
+    {
+        var atualizado = await TarefaService.AlterarPrioridadeAsync(tarefa.Id, novaPrioridade);
+        var idx = _tarefas.FindIndex(t => t.Id == atualizado.Id);
+        if (idx >= 0)
+        {
+            _tarefas[idx] = atualizado;
+        }
+    }
+
+    private async Task Excluir(TarefaDto tarefa)
+    {
+        var confirmado = await ConfirmState.ConfirmarAsync($"Excluir a tarefa \"{tarefa.Titulo}\"?", "Excluir tarefa");
+        if (!confirmado)
+        {
+            return;
+        }
+
+        await TarefaService.ExcluirAsync(tarefa.Id);
+        _tarefas.RemoveAll(t => t.Id == tarefa.Id);
+    }
+}

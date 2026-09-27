@@ -1,0 +1,148 @@
+@page "/projetos/{Id:int}"
+@inject IProjetoService ProjetoService
+@inject IFinanceiroService FinanceiroService
+@inject IRastreamentoHorasService HorasService
+@inject NavigationManager Navigation
+
+<a class="back-link" href="projetos">&larr; Voltar para projetos</a>
+
+@if (_carregando)
+{
+    <p class="page-sub">Carregando...</p>
+}
+else if (_projeto is null)
+{
+    <p class="page-sub">Projeto não encontrado — talvez ele tenha sido excluído.</p>
+}
+else
+{
+    <div class="detail-header">
+        <div>
+            <h1 class="page-title" style="margin-bottom:2px">@_projeto.Nome</h1>
+            <p class="page-sub" style="margin-bottom:0">Cliente: @_projeto.ClienteNome</p>
+        </div>
+        <select class="badge status-@_projeto.Status" value="@_projeto.Status" @onchange="AlterarStatusAsync">
+            <option value="@StatusProjeto.Orcamento">Orçamento</option>
+            <option value="@StatusProjeto.EmAndamento">Em andamento</option>
+            <option value="@StatusProjeto.Pausado">Pausado</option>
+            <option value="@StatusProjeto.Concluido">Concluído</option>
+        </select>
+    </div>
+
+    <div class="tabs">
+        @foreach (var (chave, rotulo) in Abas)
+        {
+            <div class="tab @(chave == _abaAtiva ? "active" : "")" @onclick="() => _abaAtiva = chave">@rotulo</div>
+        }
+    </div>
+
+    @if (_abaAtiva == "geral")
+    {
+        <div class="two-col" style="margin-bottom:14px">
+            <div class="panel">
+                <h3>Dados do projeto</h3>
+                <div class="list-row"><span style="flex:1">Endereço</span><span>@(_projeto.Endereco ?? "—")</span></div>
+                <div class="list-row"><span style="flex:1">Data de início</span><span>@_projeto.DataInicio.ToString("dd/MM/yyyy")</span></div>
+                <div class="list-row"><span style="flex:1">Prazo estimado</span><span>@(_projeto.PrazoEstimado?.ToString("dd/MM/yyyy") ?? "—")</span></div>
+                <div class="list-row"><span style="flex:1">Valor total acordado</span><span>@_projeto.ValorTotalAcordado.ToString("C", BrCulture)</span></div>
+            </div>
+            <div class="panel">
+                <h3>Saldo do projeto</h3>
+                <p style="font-family:var(--font-display);font-size:20px;font-weight:500;margin:0">@_saldo.ToString("C", BrCulture) <span style="font-size:13px;font-weight:400;color:var(--text-secondary)">de @_projeto.ValorTotalAcordado.ToString("C", BrCulture)</span></p>
+                @if (_proximaParcela is not null)
+                {
+                    <p style="font-size:12px;color:var(--text-secondary);margin:6px 0 0">Próxima parcela: @_proximaParcela.ValorPrevisto.ToString("C", BrCulture) em @_proximaParcela.DataPrevista.ToString("dd/MM/yyyy")</p>
+                }
+                else
+                {
+                    <p style="font-size:12px;color:var(--text-secondary);margin:6px 0 0">Nenhuma parcela pendente.</p>
+                }
+                <p style="font-size:12px;color:var(--text-secondary);margin:10px 0 0">
+                    Horas registradas: <strong>@(_horasTotal / 60)h@((_horasTotal % 60).ToString("D2"))</strong>
+                    @(_valorPorHora is not null ? $" · ≈ {_valorPorHora.Value.ToString("C", BrCulture)}/hora" : "")
+                </p>
+            </div>
+        </div>
+    }
+    else if (_abaAtiva == "tarefas")
+    {
+        <QuadroTarefas ProjetoId="_projeto.Id" />
+    }
+    else if (_abaAtiva == "financeiro")
+    {
+        <PainelFinanceiro ProjetoId="_projeto.Id" ValorTotalAcordado="_projeto.ValorTotalAcordado" />
+    }
+    else if (_abaAtiva == "horas")
+    {
+        <PainelHoras ProjetoId="_projeto.Id" ValorTotalAcordado="_projeto.ValorTotalAcordado" />
+    }
+    else if (_abaAtiva == "arquivos")
+    {
+        <PainelArquivosProjeto ProjetoId="_projeto.Id" />
+    }
+}
+
+@code {
+    private static readonly System.Globalization.CultureInfo BrCulture = new("pt-BR");
+    private static readonly (string Chave, string Rotulo)[] Abas =
+    [
+        ("geral", "Visão geral"),
+        ("tarefas", "Tarefas"),
+        ("financeiro", "Financeiro"),
+        ("horas", "Horas"),
+        ("arquivos", "Arquivos")
+    ];
+
+    private ProjetoDto? _projeto;
+    private bool _carregando = true;
+    private string _abaAtiva = "geral";
+    private decimal _saldo;
+    private PagamentoDto? _proximaParcela;
+    private int _horasTotal;
+    private decimal? _valorPorHora;
+
+    [Parameter]
+    public int Id { get; set; }
+
+    /// <summary>Permite abrir o projeto direto numa aba específica (ex: link "Tarefas próximas" do Dashboard: /projetos/5?aba=tarefas).</summary>
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "aba")]
+    public string? AbaSolicitada { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrEmpty(AbaSolicitada) && Abas.Any(a => a.Chave == AbaSolicitada))
+        {
+            _abaAtiva = AbaSolicitada;
+        }
+
+        _carregando = true;
+        _projeto = await ProjetoService.ObterPorIdAsync(Id);
+
+        if (_projeto is not null)
+        {
+            var pagamentos = await FinanceiroService.ListarPorProjetoAsync(_projeto.Id);
+            _saldo = _projeto.ValorTotalAcordado - pagamentos.Sum(p => p.ValorRecebido ?? 0m);
+            _proximaParcela = pagamentos
+                .Where(p => p.Status != StatusPagamento.Recebido)
+                .OrderBy(p => p.DataPrevista)
+                .FirstOrDefault();
+
+            var registrosHoras = await HorasService.ListarPorProjetoAsync(_projeto.Id);
+            _horasTotal = registrosHoras.Where(r => r.Status == StatusRegistroHoras.Concluido).Sum(r => r.DuracaoMinutos);
+            _valorPorHora = await HorasService.ObterValorPorHoraAsync(_projeto.Id, _projeto.ValorTotalAcordado);
+        }
+
+        _carregando = false;
+    }
+
+    private async Task AlterarStatusAsync(ChangeEventArgs e)
+    {
+        if (_projeto is null || !Enum.TryParse<StatusProjeto>(e.Value?.ToString(), out var novoStatus))
+        {
+            return;
+        }
+
+        _projeto = await ProjetoService.AlterarStatusAsync(Id, novoStatus);
+    }
+}

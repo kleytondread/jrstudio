@@ -1,0 +1,158 @@
+@inject IFinanceiroService FinanceiroService
+@inject ConfirmState ConfirmState
+
+@if (_carregando)
+{
+    <p class="page-sub">Carregando financeiro...</p>
+}
+else
+{
+    var totalPrevisto = _pagamentos.Sum(p => p.ValorPrevisto);
+    var totalRecebido = _pagamentos.Sum(p => p.ValorRecebido ?? 0m);
+    var saldo = ValorTotalAcordado - totalRecebido;
+
+    <div class="fin-summary">
+        <div><p>Valor total acordado</p><p>@ValorTotalAcordado.ToString("C", BrCulture)</p></div>
+        <div><p>Recebido</p><p>@totalRecebido.ToString("C", BrCulture)</p></div>
+        <div><p>Saldo</p><p>@saldo.ToString("C", BrCulture)</p></div>
+    </div>
+
+    <div class="toolbar">
+        <span></span>
+        <button class="primary" @onclick="AbrirNovo">+ Nova parcela</button>
+    </div>
+
+    @if (_pagamentos.Count == 0)
+    {
+        <p class="page-sub">Nenhuma parcela cadastrada ainda.</p>
+    }
+    else
+    {
+        <table class="pay-table">
+            <thead>
+                <tr>
+                    <th>Data prevista</th>
+                    <th>Valor previsto</th>
+                    <th>Status</th>
+                    <th>Recebimento</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var pagamento in _pagamentos.OrderBy(p => p.DataPrevista))
+                {
+                    <tr>
+                        <td>@pagamento.DataPrevista.ToString("dd/MM/yyyy")</td>
+                        <td>@pagamento.ValorPrevisto.ToString("C", BrCulture)</td>
+                        <td><span class="badge pay-@pagamento.Status">@StatusPagamentoLabels.Texto(pagamento.Status)</span></td>
+                        <td>
+                            @if (pagamento.ValorRecebido is not null)
+                            {
+                                @($"{pagamento.ValorRecebido.Value.ToString("C", BrCulture)} em {pagamento.DataRecebimento:dd/MM/yyyy}")
+                            }
+                            else
+                            {
+                                <span>—</span>
+                            }
+                        </td>
+                        <td>
+                            <div class="row-actions">
+                                @if (pagamento.Status != StatusPagamento.Recebido)
+                                {
+                                    <button class="small" @onclick="() => MarcarRecebido(pagamento)">Marcar como recebido</button>
+                                }
+                                <button class="small" @onclick="() => AbrirEditar(pagamento)">Editar</button>
+                                <button class="small" @onclick="() => Excluir(pagamento)">Excluir</button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+<PagamentoFormModal IsOpen="_modalAberto" Editing="_editando" OnClose="() => _modalAberto = false" OnSubmit="Salvar" />
+
+@code {
+    private static readonly System.Globalization.CultureInfo BrCulture = new("pt-BR");
+
+    private List<PagamentoDto> _pagamentos = [];
+    private bool _carregando = true;
+    private int? _ultimoProjetoId;
+
+    private bool _modalAberto;
+    private PagamentoDto? _editando;
+
+    [Parameter, EditorRequired]
+    public int ProjetoId { get; set; }
+
+    [Parameter, EditorRequired]
+    public decimal ValorTotalAcordado { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_ultimoProjetoId == ProjetoId)
+        {
+            return;
+        }
+
+        _ultimoProjetoId = ProjetoId;
+        await CarregarAsync();
+    }
+
+    private async Task CarregarAsync()
+    {
+        _carregando = true;
+        _pagamentos = (await FinanceiroService.ListarPorProjetoAsync(ProjetoId)).ToList();
+        _carregando = false;
+    }
+
+    private void AbrirNovo()
+    {
+        _editando = null;
+        _modalAberto = true;
+    }
+
+    private void AbrirEditar(PagamentoDto pagamento)
+    {
+        _editando = pagamento;
+        _modalAberto = true;
+    }
+
+    private async Task Salvar(SalvarPagamentoRequest request)
+    {
+        if (_editando is null)
+        {
+            await FinanceiroService.CriarAsync(ProjetoId, request);
+        }
+        else
+        {
+            await FinanceiroService.AtualizarAsync(_editando.Id, request);
+        }
+
+        _modalAberto = false;
+        await CarregarAsync();
+    }
+
+    private async Task MarcarRecebido(PagamentoDto pagamento)
+    {
+        await FinanceiroService.MarcarComoRecebidoAsync(pagamento.Id);
+        await CarregarAsync();
+    }
+
+    private async Task Excluir(PagamentoDto pagamento)
+    {
+        var confirmado = await ConfirmState.ConfirmarAsync(
+            $"Excluir a parcela de {pagamento.ValorPrevisto.ToString("C", BrCulture)} prevista para {pagamento.DataPrevista:dd/MM/yyyy}?",
+            "Excluir parcela");
+
+        if (!confirmado)
+        {
+            return;
+        }
+
+        await FinanceiroService.ExcluirAsync(pagamento.Id);
+        await CarregarAsync();
+    }
+}

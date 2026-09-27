@@ -1,0 +1,44 @@
+@if (IsOpen)
+{
+    <div class="modal-overlay">
+        <div class="modal-card" style="width:520px">
+            <h2>Vincular arquivo existente</h2>
+            <p class="modal-sub">Selecione um arquivo já importado na Biblioteca para vincular a este projeto, sem reimportar.</p>
+
+            @if (Disponiveis.Count == 0)
+            {
+                <p class="tab-placeholder">Todos os arquivos da Biblioteca já estão vinculados a este projeto (ou a Biblioteca ainda está vazia).</p>
+            }
+            else
+            {
+                <div class="file-grid" style="max-height:320px;overflow-y:auto">
+                    @foreach (var arquivo in Disponiveis)
+                    {
+                        <div class="file-card" style="cursor:pointer" @onclick="() => OnVincular.InvokeAsync(arquivo)">
+                            <div class="file-thumb"><span>@TipoArquivoLabels.Sigla(arquivo.TipoArquivo)</span></div>
+                            <div class="file-info"><p class="fname" title="@arquivo.NomeArquivo">@arquivo.NomeArquivo</p></div>
+                        </div>
+                    }
+                </div>
+            }
+
+            <div class="modal-actions">
+                <button @onclick="() => OnClose.InvokeAsync()">Fechar</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public bool IsOpen { get; set; }
+
+    [Parameter]
+    public List<ArquivoDto> Disponiveis { get; set; } = [];
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    [Parameter]
+    public EventCallback<ArquivoDto> OnVincular { get; set; }
+}

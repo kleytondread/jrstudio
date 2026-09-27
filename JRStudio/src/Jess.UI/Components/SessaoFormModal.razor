@@ -1,0 +1,142 @@
+@if (IsOpen)
+{
+    <div class="modal-overlay">
+        <div class="modal-card" style="width:520px">
+            <h2>@(Editing is null ? "Adicionar registro manual" : "Editar sessão")</h2>
+            <p class="modal-sub">
+                Data: <strong>@((Editing?.InicioSessao ?? DateTime.Now).ToString("dd/MM/yyyy"))</strong>.
+                Ajuste a duração e categoria, ou adicione mais trechos para dividir o tempo.
+            </p>
+
+            @for (var i = 0; i < _segmentos.Count; i++)
+            {
+                var idx = i;
+                <div class="seg-row">
+                    <div class="seg-row-line">
+                        <div class="field" style="width:60px"><label>Horas</label><input type="number" min="0" @bind="_segmentos[idx].Horas" /></div>
+                        <div class="field" style="width:60px"><label>Min</label><input type="number" min="0" max="59" @bind="_segmentos[idx].Minutos" /></div>
+                        <div class="field" style="flex:1">
+                            <label>Categoria</label>
+                            <select @bind="_segmentos[idx].Categoria">
+                                @foreach (var categoria in CategoriaHorasLabels.Todas)
+                                {
+                                    <option value="@categoria">@CategoriaHorasLabels.Texto(categoria)</option>
+                                }
+                            </select>
+                        </div>
+                        @if (_segmentos.Count > 1)
+                        {
+                            <button class="ghost" aria-label="Remover trecho" style="margin-top:20px" @onclick="() => RemoverTrecho(idx)">&#10005;</button>
+                        }
+                    </div>
+                    <div class="field"><label>Nota</label><input @bind="_segmentos[idx].Nota" placeholder="Opcional" /></div>
+                </div>
+            }
+
+            <div style="display:flex;justify-content:space-between;align-items:center;margin:4px 0 20px">
+                <button @onclick="AdicionarTrecho">+ Adicionar trecho</button>
+                <span style="font-size:13px;color:var(--text-secondary)">Total: <strong style="color:var(--text-primary)">@FormatarDuracao(TotalMinutos)</strong></span>
+            </div>
+
+            <div class="modal-actions">
+                <button @onclick="() => OnClose.InvokeAsync()">Cancelar</button>
+                <button class="primary" @onclick="Submeter">Salvar</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private class SegmentoEditavel
+    {
+        public int Horas { get; set; }
+        public int Minutos { get; set; }
+        public CategoriaHoras Categoria { get; set; } = CategoriaHoras.Detalhamento;
+        public string? Nota { get; set; }
+    }
+
+    private List<SegmentoEditavel> _segmentos = [];
+    private RegistroHorasDto? _lastLoaded;
+    private bool _wasOpen;
+    private bool _carregouParaCriar;
+
+    [Parameter]
+    public bool IsOpen { get; set; }
+
+    [Parameter]
+    public RegistroHorasDto? Editing { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    [Parameter]
+    public EventCallback<List<SegmentoInput>> OnSubmit { get; set; }
+
+    private int TotalMinutos => _segmentos.Sum(s => s.Horas * 60 + s.Minutos);
+
+    protected override void OnParametersSet()
+    {
+        if (!IsOpen)
+        {
+            _wasOpen = false;
+            _carregouParaCriar = false;
+            return;
+        }
+
+        var justOpened = !_wasOpen;
+        _wasOpen = true;
+
+        if (Editing is null)
+        {
+            if (justOpened || !_carregouParaCriar)
+            {
+                _segmentos = [new SegmentoEditavel { Horas = 1, Minutos = 0 }];
+                _carregouParaCriar = true;
+            }
+
+            return;
+        }
+
+        _carregouParaCriar = false;
+
+        if (!justOpened && ReferenceEquals(Editing, _lastLoaded))
+        {
+            return;
+        }
+
+        _lastLoaded = Editing;
+
+        _segmentos = Editing.Segmentos.Count > 0
+            ? Editing.Segmentos.Select(s => new SegmentoEditavel
+            {
+                Horas = s.DuracaoMinutos / 60,
+                Minutos = s.DuracaoMinutos % 60,
+                Categoria = s.Categoria,
+                Nota = s.Nota
+            }).ToList()
+            : [
+                new SegmentoEditavel
+                {
+                    Horas = Editing.DuracaoMinutos / 60,
+                    Minutos = Editing.DuracaoMinutos % 60,
+                    Categoria = Editing.Categoria ?? CategoriaHoras.Detalhamento,
+                    Nota = Editing.Nota
+                }
+            ];
+    }
+
+    private void AdicionarTrecho() => _segmentos.Add(new SegmentoEditavel { Horas = 0, Minutos = 30 });
+
+    private void RemoverTrecho(int idx) => _segmentos.RemoveAt(idx);
+
+    private static string FormatarDuracao(int minutos) => $"{minutos / 60}h{minutos % 60:D2}";
+
+    private Task Submeter()
+    {
+        var inputs = _segmentos
+            .Select(s => new SegmentoInput { DuracaoMinutos = (s.Horas * 60) + s.Minutos, Categoria = s.Categoria, Nota = s.Nota })
+            .ToList();
+
+        return OnSubmit.InvokeAsync(inputs);
+    }
+}

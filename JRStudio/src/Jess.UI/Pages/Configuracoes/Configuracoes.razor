@@ -1,0 +1,140 @@
+@page "/configuracoes"
+@inject IBackupService BackupService
+@inject IFileDialogService FileDialogService
+@inject IAppLifecycleService AppLifecycle
+@inject IConfiguracaoService ConfiguracaoService
+@inject ConfirmState ConfirmState
+@inject IJSRuntime JsRuntime
+
+<h1 class="page-title">Configurações</h1>
+<p class="page-sub">Perfil, backup e restauração dos dados do aplicativo.</p>
+
+<div class="panel" style="margin-bottom:16px">
+    <h3>Perfil</h3>
+    <p style="font-size:13px;color:var(--text-secondary);margin:0 0 14px">Usado na saudação do Dashboard. Um cadastro de usuário mais completo está planejado para uma fase futura.</p>
+    <div class="field" style="max-width:320px">
+        <label for="cfg-nome">Nome</label>
+        <input id="cfg-nome" @bind="_nomeArquiteto" @bind:event="oninput" placeholder="Ex: Jéssica" />
+    </div>
+    <button class="primary" disabled="@_salvandoPerfil" @onclick="SalvarPerfilAsync">Salvar</button>
+    @if (!string.IsNullOrEmpty(_mensagemPerfil))
+    {
+        <p class="page-sub" style="margin-top:10px">@_mensagemPerfil</p>
+    }
+</div>
+
+<div class="panel" style="margin-bottom:16px">
+    <h3>Fazer backup</h3>
+    <p style="font-size:13px;color:var(--text-secondary);margin:0 0 14px">Gere um arquivo para guardar em outro lugar ou levar para um novo computador.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="primary" disabled="@_processando" @onclick="() => FazerBackupAsync(TipoBackup.Completo)">Backup completo (banco + arquivos)</button>
+        <button disabled="@_processando" @onclick="() => FazerBackupAsync(TipoBackup.SoDados)">Backup só dos dados de gestão</button>
+    </div>
+    <p style="font-size:12px;color:var(--text-muted);margin:12px 0 0">O backup completo inclui todas as imagens e texturas da Biblioteca. O backup só de dados gera um arquivo bem mais leve, sem os arquivos da Biblioteca.</p>
+</div>
+
+<div class="panel">
+    <h3>Restaurar backup</h3>
+    <p style="font-size:13px;color:var(--text-secondary);margin:0 0 14px">Selecione um arquivo de backup gerado anteriormente para restaurar o sistema. Essa ação substitui todos os dados atuais e não pode ser desfeita.</p>
+    <button disabled="@_processando" @onclick="RestaurarBackupAsync">Selecionar arquivo de backup...</button>
+</div>
+
+@if (!string.IsNullOrEmpty(_mensagem))
+{
+    <p class="page-sub" style="margin-top:14px">@_mensagem</p>
+}
+
+@code {
+    private bool _processando;
+    private string? _mensagem;
+
+    private string? _nomeArquiteto;
+    private bool _salvandoPerfil;
+    private string? _mensagemPerfil;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var configuracao = await ConfiguracaoService.ObterAsync();
+        _nomeArquiteto = configuracao.NomeArquiteto;
+    }
+
+    private async Task SalvarPerfilAsync()
+    {
+        _salvandoPerfil = true;
+        _mensagemPerfil = null;
+        try
+        {
+            await ConfiguracaoService.AtualizarNomeArquitetoAsync(_nomeArquiteto);
+            _mensagemPerfil = "Nome salvo.";
+        }
+        finally
+        {
+            _salvandoPerfil = false;
+        }
+    }
+
+    private async Task FazerBackupAsync(TipoBackup tipo)
+    {
+        var hoje = DateTime.Now.ToString("yyyy-MM-dd");
+        var sufixo = tipo == TipoBackup.Completo ? "completo" : "dados";
+        var nomeSugerido = $"JRStudio-backup-{sufixo}-{hoje}.zip";
+
+        var destino = await FileDialogService.EscolherDestinoParaSalvarAsync(nomeSugerido, "Arquivo zip (*.zip)|*.zip");
+        if (destino is null)
+        {
+            return;
+        }
+
+        _processando = true;
+        _mensagem = null;
+        try
+        {
+            await BackupService.CriarBackupAsync(tipo, destino);
+            _mensagem = $"Backup gerado com sucesso em: {destino}";
+        }
+        catch (Exception ex)
+        {
+            _mensagem = $"Não foi possível gerar o backup: {ex.Message}";
+        }
+        finally
+        {
+            _processando = false;
+        }
+    }
+
+    private async Task RestaurarBackupAsync()
+    {
+        var origem = await FileDialogService.EscolherArquivoParaAbrirAsync("Arquivo zip (*.zip)|*.zip");
+        if (origem is null)
+        {
+            return;
+        }
+
+        var confirmado = await ConfirmState.ConfirmarAsync(
+            "Restaurar um backup substitui todos os dados atuais do aplicativo. Essa ação não pode ser desfeita. Deseja continuar?",
+            "Restaurar backup");
+
+        if (!confirmado)
+        {
+            return;
+        }
+
+        _processando = true;
+        _mensagem = null;
+        try
+        {
+            var tipo = await BackupService.RestaurarBackupAsync(origem);
+            var aviso = tipo == TipoBackup.SoDados
+                ? " Esse backup não incluía os arquivos da Biblioteca — os vínculos ficam no banco, mas os arquivos físicos só aparecem se já existirem nesta máquina."
+                : string.Empty;
+
+            await JsRuntime.InvokeVoidAsync("alert", $"Backup restaurado com sucesso.{aviso} O aplicativo será reiniciado agora.");
+            AppLifecycle.Reiniciar();
+        }
+        catch (Exception ex)
+        {
+            _mensagem = $"Não foi possível restaurar o backup: {ex.Message}";
+            _processando = false;
+        }
+    }
+}

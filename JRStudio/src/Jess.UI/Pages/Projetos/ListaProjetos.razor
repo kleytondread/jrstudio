@@ -1,0 +1,138 @@
+@page "/projetos"
+@inject IProjetoService ProjetoService
+@inject NavigationManager Navigation
+@inject ConfirmState ConfirmState
+
+<div class="toolbar">
+    <h1 class="page-title" style="margin-bottom:0">Projetos</h1>
+    <button class="primary" @onclick="AbrirNovo">+ Novo projeto</button>
+</div>
+
+<div class="tag-row">
+    @foreach (var chip in Chips())
+    {
+        <span class="tag-chip @(chip.Key == _filtroAtivo ? "active" : "")" @onclick="() => _filtroAtivo = chip.Key">@chip.Label</span>
+    }
+</div>
+
+@if (_carregando)
+{
+    <p class="page-sub">Carregando projetos...</p>
+}
+else
+{
+    var lista = ProjetosFiltrados();
+    @if (lista.Count == 0)
+    {
+        <p class="page-sub">Nenhum projeto nessa categoria.</p>
+    }
+    else
+    {
+        <div class="project-grid">
+            @foreach (var projeto in lista)
+            {
+                <ProjectCard Projeto="projeto"
+                             OnOpen="() => AbrirDetalhe(projeto)"
+                             OnEdit="() => AbrirEditar(projeto)"
+                             OnDelete="() => Excluir(projeto)" />
+            }
+        </div>
+    }
+}
+
+<ProjectFormModal IsOpen="_modalAberto" Editing="_editando" OnClose="FecharModal" OnSubmit="Salvar" />
+
+@code {
+    private List<ProjetoDto> _projetos = new();
+    private bool _carregando = true;
+    private string? _filtroAtivo;
+    private bool _modalAberto;
+    private ProjetoDto? _editando;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarAsync();
+    }
+
+    private async Task CarregarAsync()
+    {
+        _carregando = true;
+        _projetos = (await ProjetoService.ListarAsync()).ToList();
+        _carregando = false;
+    }
+
+    private static int AnoAtual => DateTime.Now.Year;
+
+    private bool Corresponde(ProjetoDto p, string? filtro) => filtro switch
+    {
+        "andamento" => p.Status == StatusProjeto.EmAndamento,
+        "concluidos" => p.Status == StatusProjeto.Concluido,
+        "orcamento" => p.Status == StatusProjeto.Orcamento,
+        "pausado" => p.Status == StatusProjeto.Pausado,
+        "ano" => p.Status == StatusProjeto.EmAndamento || (p.Status == StatusProjeto.Concluido && p.DataConclusao?.Year == AnoAtual),
+        _ => true
+    };
+
+    private List<ProjetoDto> ProjetosFiltrados() =>
+        _filtroAtivo is null ? _projetos : _projetos.Where(p => Corresponde(p, _filtroAtivo)).ToList();
+
+    private List<(string? Key, string Label)> Chips()
+    {
+        int Contar(string filtro) => _projetos.Count(p => Corresponde(p, filtro));
+
+        return new()
+        {
+            (null, "Todos"),
+            ("andamento", $"Em andamento ({Contar("andamento")})"),
+            ("concluidos", $"Concluídos ({Contar("concluidos")})"),
+            ("orcamento", $"Orçamento ({Contar("orcamento")})"),
+            ("pausado", $"Pausado ({Contar("pausado")})"),
+            ("ano", $"{AnoAtual} ({Contar("ano")})"),
+        };
+    }
+
+    private void AbrirNovo()
+    {
+        _editando = null;
+        _modalAberto = true;
+    }
+
+    private void AbrirEditar(ProjetoDto projeto)
+    {
+        _editando = projeto;
+        _modalAberto = true;
+    }
+
+    private void FecharModal() => _modalAberto = false;
+
+    private void AbrirDetalhe(ProjetoDto projeto) => Navigation.NavigateTo($"/projetos/{projeto.Id}");
+
+    private async Task Salvar(SalvarProjetoRequest request)
+    {
+        if (_editando is null)
+        {
+            await ProjetoService.CriarAsync(request);
+        }
+        else
+        {
+            await ProjetoService.AtualizarAsync(_editando.Id, request);
+        }
+
+        _modalAberto = false;
+        await CarregarAsync();
+    }
+
+    private async Task Excluir(ProjetoDto projeto)
+    {
+        var confirmado = await ConfirmState.ConfirmarAsync(
+            $"Excluir \"{projeto.Nome}\"? Essa ação não pode ser desfeita.", "Excluir projeto");
+
+        if (!confirmado)
+        {
+            return;
+        }
+
+        await ProjetoService.ExcluirAsync(projeto.Id);
+        await CarregarAsync();
+    }
+}

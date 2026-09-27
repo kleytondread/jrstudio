@@ -1,0 +1,58 @@
+@if (_menuOpen)
+{
+    <div style="position:fixed;inset:0;z-index:5" @onclick="() => _menuOpen = false"></div>
+}
+<div class="project-card" @onclick="() => OnOpen.InvokeAsync()">
+    <div class="card-menu-wrap">
+        <button class="card-menu-btn" aria-label="Mais opções" @onclick="ToggleMenu" @onclick:stopPropagation>&#8942;</button>
+        @if (_menuOpen)
+        {
+            <div class="card-menu">
+                <div class="card-menu-item" @onclick="Editar" @onclick:stopPropagation>Editar</div>
+                <div class="card-menu-item danger" @onclick="Excluir" @onclick:stopPropagation>Excluir</div>
+            </div>
+        }
+    </div>
+    <p class="name">@Projeto.Nome</p>
+    <p class="client">@Projeto.ClienteNome</p>
+    <span class="badge status-@Projeto.Status">@StatusLabels.Texto(Projeto.Status)</span>
+    <div class="row">
+        <span>Prazo</span>
+        <span>@(Projeto.PrazoEstimado?.ToString("dd/MM/yyyy") ?? "—")</span>
+    </div>
+    <div class="row">
+        <span>Valor</span>
+        <span>@Projeto.ValorTotalAcordado.ToString("C", BrCulture)</span>
+    </div>
+</div>
+
+@code {
+    private static readonly System.Globalization.CultureInfo BrCulture = new("pt-BR");
+    private bool _menuOpen;
+
+    [Parameter, EditorRequired]
+    public ProjetoDto Projeto { get; set; } = null!;
+
+    [Parameter]
+    public EventCallback OnOpen { get; set; }
+
+    [Parameter]
+    public EventCallback OnEdit { get; set; }
+
+    [Parameter]
+    public EventCallback OnDelete { get; set; }
+
+    private void ToggleMenu() => _menuOpen = !_menuOpen;
+
+    private Task Editar()
+    {
+        _menuOpen = false;
+        return OnEdit.InvokeAsync();
+    }
+
+    private Task Excluir()
+    {
+        _menuOpen = false;
+        return OnDelete.InvokeAsync();
+    }
+}

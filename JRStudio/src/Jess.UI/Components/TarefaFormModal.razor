@@ -1,0 +1,118 @@
+@if (IsOpen && Editing is not null)
+{
+    <div class="modal-overlay">
+        <div class="modal-card">
+            <h2>Editar tarefa</h2>
+            <p class="modal-sub">@FaseLabels.Texto(Editing.Fase!.Value) — @ColunaLabels.Texto(_form.Coluna)</p>
+
+            <EditForm Model="_form" OnValidSubmit="Submeter">
+                <DataAnnotationsValidator />
+
+                <div class="field">
+                    <label for="tf-titulo">Título</label>
+                    <InputText id="tf-titulo" @bind-Value="_form.Titulo" />
+                    <ValidationMessage For="() => _form.Titulo" class="field-error" />
+                </div>
+
+                <div class="field">
+                    <label for="tf-descricao">Descrição</label>
+                    <InputText id="tf-descricao" @bind-Value="_form.Descricao" placeholder="Opcional" />
+                </div>
+
+                <div class="field-row">
+                    <div class="field">
+                        <label for="tf-prioridade">Prioridade</label>
+                        <InputSelect id="tf-prioridade" @bind-Value="_form.Prioridade">
+                            <option value="@PrioridadeTarefa.Baixa">Baixa</option>
+                            <option value="@PrioridadeTarefa.Media">Média</option>
+                            <option value="@PrioridadeTarefa.Alta">Alta</option>
+                        </InputSelect>
+                    </div>
+                    <div class="field">
+                        <label for="tf-coluna">Coluna</label>
+                        <InputSelect id="tf-coluna" @bind-Value="_form.Coluna">
+                            <option value="@ColunaTarefa.AFazer">A fazer</option>
+                            <option value="@ColunaTarefa.Fazendo">Fazendo</option>
+                            <option value="@ColunaTarefa.Concluido">Concluído</option>
+                        </InputSelect>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="tf-prazo">Prazo</label>
+                    <input type="datetime-local" id="tf-prazo" value="@PrazoInput" @onchange="OnPrazoChanged" />
+                </div>
+
+                <div class="field">
+                    <label for="tf-recorrencia">Recorrência</label>
+                    <InputText id="tf-recorrencia" @bind-Value="_form.RegraRecorrencia" placeholder="Ex: toda segunda (opcional)" />
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" @onclick="() => OnClose.InvokeAsync()">Cancelar</button>
+                    <button type="submit" class="primary">Salvar alterações</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    private SalvarTarefaRequest _form = new();
+    private TarefaDto? _lastLoaded;
+    private bool _wasOpen;
+
+    [Parameter]
+    public bool IsOpen { get; set; }
+
+    [Parameter]
+    public TarefaDto? Editing { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    [Parameter]
+    public EventCallback<SalvarTarefaRequest> OnSubmit { get; set; }
+
+    private string PrazoInput => _form.Prazo?.ToString("yyyy-MM-ddTHH:mm") ?? string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        if (!IsOpen)
+        {
+            _wasOpen = false;
+            return;
+        }
+
+        var justOpened = !_wasOpen;
+        _wasOpen = true;
+
+        if (!justOpened && ReferenceEquals(Editing, _lastLoaded))
+        {
+            return;
+        }
+
+        _lastLoaded = Editing;
+
+        if (Editing is not null)
+        {
+            _form = new SalvarTarefaRequest
+            {
+                Titulo = Editing.Titulo,
+                Descricao = Editing.Descricao,
+                Prioridade = Editing.Prioridade,
+                Prazo = Editing.Prazo,
+                Coluna = Editing.Coluna,
+                RegraRecorrencia = Editing.RegraRecorrencia
+            };
+        }
+    }
+
+    private void OnPrazoChanged(ChangeEventArgs e)
+    {
+        var texto = e.Value?.ToString();
+        _form.Prazo = string.IsNullOrWhiteSpace(texto) ? null : DateTime.Parse(texto);
+    }
+
+    private Task Submeter() => OnSubmit.InvokeAsync(_form);
+}

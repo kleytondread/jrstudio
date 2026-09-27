@@ -1,0 +1,30 @@
+@implements IDisposable
+@inject ConfirmState ConfirmState
+
+@if (ConfirmState.IsOpen)
+{
+    <div class="modal-overlay">
+        <div class="modal-card" style="width:380px">
+            <h2>@ConfirmState.Titulo</h2>
+            <p class="modal-sub" style="margin-bottom:0">@ConfirmState.Mensagem</p>
+            <div class="modal-actions">
+                <button @onclick="() => ConfirmState.Responder(false)">Cancelar</button>
+                <button class="primary danger-action" @onclick="() => ConfirmState.Responder(true)">Confirmar</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    protected override void OnInitialized()
+    {
+        ConfirmState.OnChange += HandleChange;
+    }
+
+    private void HandleChange() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        ConfirmState.OnChange -= HandleChange;
+    }
+}

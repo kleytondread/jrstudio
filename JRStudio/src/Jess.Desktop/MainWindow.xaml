@@ -1,0 +1,62 @@
+<Window x:Class="Jess.Desktop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Jess.Desktop"
+        xmlns:blazor="clr-namespace:Microsoft.AspNetCore.Components.WebView.Wpf;assembly=Microsoft.AspNetCore.Components.WebView.Wpf"
+        xmlns:jessui="clr-namespace:Jess.UI;assembly=Jess.UI"
+        mc:Ignorable="d"
+        Title="J.R Studio" Height="720" Width="1200" MinHeight="480" MinWidth="820"
+        WindowStyle="None" ResizeMode="CanResize" Icon="app.ico"
+        Background="{DynamicResource TitleBarBackgroundBrush}">
+    <!--
+        Barra de título nativa do Windows trocada por uma customizada (pedido da usuária — a barra
+        padrão destoava muito da paleta do app). WindowChrome.WindowChrome é o que preserva o
+        comportamento nativo do Windows (arrastar pra mover, Aero Snap nas bordas, duplo-clique pra
+        maximizar/restaurar) mesmo sem o chrome desenhado pelo Windows: a área definida por
+        CaptionHeight é reportada como HTCAPTION pro Windows, então ele trata como se fosse a barra de
+        título de verdade. AllowsTransparency foi deliberadamente deixado em false (padrão): já tivemos
+        uma bateria de bugs de renderização do WebView2 (ver Troubleshooting_WebView2_BlazorHybrid.md),
+        e AllowsTransparency=true é conhecido por causar problemas com controles HWND hospedados como o
+        WebView2 — o preço é não ter a sombra externa da janela, aceitável pelo baixo risco.
+    -->
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="36" CornerRadius="0" GlassFrameThickness="0" ResizeBorderThickness="6" UseAeroCaptionButtons="False" />
+    </WindowChrome.WindowChrome>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="36" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Background="{DynamicResource TitleBarBackgroundBrush}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center">
+                <Image Source="Resources/logo-mark.png" Width="18" Height="18" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
+                <TextBlock Text="J.R Studio" Margin="8,0,0,0" VerticalAlignment="Center"
+                           Foreground="{DynamicResource TitleBarForegroundBrush}" FontSize="12" FontWeight="SemiBold"
+                           FontFamily="Segoe UI" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" WindowChrome.IsHitTestVisibleInChrome="True">
+                <Button x:Name="MinimizeButton" Content="&#xE921;" Style="{StaticResource CaptionButtonStyle}"
+                        Click="Minimize_Click" ToolTip="Minimizar" />
+                <Button x:Name="MaximizeRestoreButton" Content="&#xE922;" Style="{StaticResource CaptionButtonStyle}"
+                        Click="MaximizeRestore_Click" ToolTip="Maximizar" />
+                <Button x:Name="CloseButton" Content="&#xE8BB;" Style="{StaticResource CloseButtonStyle}"
+                        Click="Close_Click" ToolTip="Fechar" />
+            </StackPanel>
+        </Grid>
+
+        <blazor:BlazorWebView Grid.Row="1" x:Name="BlazorWebView" HostPage="wwwroot\index.html">
+            <blazor:BlazorWebView.RootComponents>
+                <blazor:RootComponent Selector="#app" ComponentType="{x:Type jessui:App}" />
+            </blazor:BlazorWebView.RootComponents>
+        </blazor:BlazorWebView>
+    </Grid>
+</Window>

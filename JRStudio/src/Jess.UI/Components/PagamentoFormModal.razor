@@ -1,0 +1,83 @@
+@if (IsOpen)
+{
+    <div class="modal-overlay">
+        <div class="modal-card">
+            <h2>@(Editing is null ? "Nova parcela" : "Editar parcela")</h2>
+            <p class="modal-sub">Valor previsto e data prevista para o recebimento.</p>
+
+            <EditForm Model="_form" OnValidSubmit="Submeter">
+                <DataAnnotationsValidator />
+
+                <div class="field-row">
+                    <div class="field">
+                        <label for="pg-valor">Valor previsto (R$)</label>
+                        <InputNumber id="pg-valor" @bind-Value="_form.ValorPrevisto" min="0" />
+                        <ValidationMessage For="() => _form.ValorPrevisto" class="field-error" />
+                    </div>
+                    <div class="field">
+                        <label for="pg-data">Data prevista</label>
+                        <InputDate id="pg-data" @bind-Value="_form.DataPrevista" />
+                        <ValidationMessage For="() => _form.DataPrevista" class="field-error" />
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="pg-obs">Observações</label>
+                    <InputText id="pg-obs" @bind-Value="_form.Observacoes" placeholder="Opcional" />
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" @onclick="() => OnClose.InvokeAsync()">Cancelar</button>
+                    <button type="submit" class="primary">@(Editing is null ? "Criar parcela" : "Salvar alterações")</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    private SalvarPagamentoRequest _form = new();
+    private PagamentoDto? _lastLoaded;
+    private bool _wasOpen;
+
+    [Parameter]
+    public bool IsOpen { get; set; }
+
+    [Parameter]
+    public PagamentoDto? Editing { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    [Parameter]
+    public EventCallback<SalvarPagamentoRequest> OnSubmit { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (!IsOpen)
+        {
+            _wasOpen = false;
+            return;
+        }
+
+        var justOpened = !_wasOpen;
+        _wasOpen = true;
+
+        if (!justOpened && ReferenceEquals(Editing, _lastLoaded))
+        {
+            return;
+        }
+
+        _lastLoaded = Editing;
+        _form = Editing is null
+            ? new SalvarPagamentoRequest { DataPrevista = DateOnly.FromDateTime(DateTime.Now) }
+            : new SalvarPagamentoRequest
+            {
+                ValorPrevisto = Editing.ValorPrevisto,
+                DataPrevista = Editing.DataPrevista,
+                Observacoes = Editing.Observacoes
+            };
+    }
+
+    private Task Submeter() => OnSubmit.InvokeAsync(_form);
+}

@@ -1,0 +1,179 @@
+@inject IJSRuntime JsRuntime
+
+@if (_menuOpen || _prioridadeMenuOpen)
+{
+    <div style="position:fixed;inset:0;z-index:999" @onclick="FecharMenus"></div>
+}
+<div class="kcard @(Tarefa.Coluna == ColunaTarefa.Concluido ? "done" : "")">
+    <div class="menu-wrap-inline task-menu-wrap">
+        <button @ref="_menuGatilho" class="card-menu-btn" aria-label="Mais opções da tarefa" @onclick="ToggleMenu" @onclick:stopPropagation>&#8942;</button>
+    </div>
+    <p class="title">@Tarefa.Titulo</p>
+    <div class="meta">
+        <span @ref="_prioridadeGatilho" style="display:flex;align-items:center;gap:5px;cursor:pointer" @onclick="TogglePrioridadeMenu" @onclick:stopPropagation>
+            <span style="width:7px;height:7px;border-radius:50%;background:@PrioridadeLabels.CorVariavel(Tarefa.Prioridade);display:inline-block"></span>
+            @PrioridadeLabels.Texto(Tarefa.Prioridade)
+        </span>
+        <span>@(Tarefa.Prazo?.ToString("dd/MM") ?? "")</span>
+    </div>
+    @if (ColunaAnterior(Tarefa.Coluna) is not null || ColunaProxima(Tarefa.Coluna) is not null)
+    {
+        <div class="moves">
+            @if (ColunaAnterior(Tarefa.Coluna) is { } anterior)
+            {
+                <button class="small ghost" title="Mover para @ColunaLabels.Texto(anterior)" @onclick="() => Mover(anterior)">&#8592; @ColunaLabels.Texto(anterior)</button>
+            }
+            @if (ColunaProxima(Tarefa.Coluna) is { } proxima)
+            {
+                <button class="small ghost" title="Mover para @ColunaLabels.Texto(proxima)" @onclick="() => Mover(proxima)">@ColunaLabels.Texto(proxima) &#8594;</button>
+            }
+        </div>
+    }
+</div>
+
+@if (_menuOpen && _menuPos is not null)
+{
+    <div class="card-menu" style="position:fixed; right:auto; top:@(_menuPos.Value.Top)px; left:@(_menuPos.Value.Left)px; z-index:1000">
+        <div class="card-menu-item" @onclick="Editar" @onclick:stopPropagation>Editar</div>
+        <div class="card-menu-item danger" @onclick="Excluir" @onclick:stopPropagation>Excluir</div>
+    </div>
+}
+
+@if (_prioridadeMenuOpen && _prioridadePos is not null)
+{
+    <div class="card-menu" style="position:fixed; right:auto; top:@(_prioridadePos.Value.Top)px; left:@(_prioridadePos.Value.Left)px; width:@(LarguraDropdownPrioridade)px; min-width:0; z-index:1000">
+        @foreach (var prioridade in Prioridades)
+        {
+            <div class="card-menu-item" style="display:flex;align-items:center;gap:6px" @onclick="() => SelecionarPrioridade(prioridade)" @onclick:stopPropagation>
+                <span style="width:7px;height:7px;border-radius:50%;background:@PrioridadeLabels.CorVariavel(prioridade);display:inline-block;flex-shrink:0"></span>
+                @PrioridadeLabels.Texto(prioridade)
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private const double LarguraDropdownPrioridade = 88;
+    private const double LarguraMenuAcoes = 130;
+    private const double MargemViewport = 6;
+
+    private static readonly PrioridadeTarefa[] Prioridades = [PrioridadeTarefa.Baixa, PrioridadeTarefa.Media, PrioridadeTarefa.Alta];
+
+    private ElementReference _menuGatilho;
+    private ElementReference _prioridadeGatilho;
+
+    private bool _menuOpen;
+    private bool _prioridadeMenuOpen;
+    private (double Top, double Left)? _menuPos;
+    private (double Top, double Left)? _prioridadePos;
+
+    [Parameter, EditorRequired]
+    public TarefaDto Tarefa { get; set; } = null!;
+
+    [Parameter]
+    public EventCallback OnEdit { get; set; }
+
+    [Parameter]
+    public EventCallback OnDelete { get; set; }
+
+    [Parameter]
+    public EventCallback<ColunaTarefa> OnMover { get; set; }
+
+    [Parameter]
+    public EventCallback<PrioridadeTarefa> OnAlterarPrioridade { get; set; }
+
+    private void FecharMenus()
+    {
+        _menuOpen = false;
+        _prioridadeMenuOpen = false;
+    }
+
+    private async Task ToggleMenu()
+    {
+        _prioridadeMenuOpen = false;
+
+        if (_menuOpen)
+        {
+            _menuOpen = false;
+            return;
+        }
+
+        var rect = await JsRuntime.InvokeAsync<ElementRect?>("jessInterop.getBoundingRect", _menuGatilho);
+        if (rect is null)
+        {
+            return;
+        }
+
+        var left = rect.Right - LarguraMenuAcoes;
+        left = Math.Max(MargemViewport, Math.Min(left, rect.ViewportWidth - LarguraMenuAcoes - MargemViewport));
+
+        _menuPos = (rect.Bottom + 2, left);
+        _menuOpen = true;
+    }
+
+    private async Task TogglePrioridadeMenu()
+    {
+        _menuOpen = false;
+
+        if (_prioridadeMenuOpen)
+        {
+            _prioridadeMenuOpen = false;
+            return;
+        }
+
+        var rect = await JsRuntime.InvokeAsync<ElementRect?>("jessInterop.getBoundingRect", _prioridadeGatilho);
+        if (rect is null)
+        {
+            return;
+        }
+
+        double left;
+        if (rect.Right + LarguraDropdownPrioridade + MargemViewport <= rect.ViewportWidth)
+        {
+            // Cabe à direita da área de prioridade — é a posição preferida.
+            left = rect.Right + MargemViewport;
+        }
+        else
+        {
+            // Sem espaço à direita (ex: coluna "Concluído", mais à direita do quadro) — abre à esquerda.
+            left = Math.Max(MargemViewport, rect.Left - LarguraDropdownPrioridade - MargemViewport);
+        }
+
+        _prioridadePos = (rect.Top, left);
+        _prioridadeMenuOpen = true;
+    }
+
+    private Task SelecionarPrioridade(PrioridadeTarefa prioridade)
+    {
+        _prioridadeMenuOpen = false;
+        return OnAlterarPrioridade.InvokeAsync(prioridade);
+    }
+
+    private Task Mover(ColunaTarefa coluna) => OnMover.InvokeAsync(coluna);
+
+    private static ColunaTarefa? ColunaAnterior(ColunaTarefa atual) => atual switch
+    {
+        ColunaTarefa.Fazendo => ColunaTarefa.AFazer,
+        ColunaTarefa.Concluido => ColunaTarefa.Fazendo,
+        _ => null
+    };
+
+    private static ColunaTarefa? ColunaProxima(ColunaTarefa atual) => atual switch
+    {
+        ColunaTarefa.AFazer => ColunaTarefa.Fazendo,
+        ColunaTarefa.Fazendo => ColunaTarefa.Concluido,
+        _ => null
+    };
+
+    private Task Editar()
+    {
+        _menuOpen = false;
+        return OnEdit.InvokeAsync();
+    }
+
+    private Task Excluir()
+    {
+        _menuOpen = false;
+        return OnDelete.InvokeAsync();
+    }
+}

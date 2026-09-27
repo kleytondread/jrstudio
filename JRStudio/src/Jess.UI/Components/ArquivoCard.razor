@@ -1,0 +1,164 @@
+@inject IFileStorageService FileStorage
+@inject IFileDialogService FileDialogService
+@inject IJSRuntime JsRuntime
+
+@if (_menuOpen)
+{
+    <div style="position:fixed;inset:0;z-index:999" @onclick="FecharMenu"></div>
+}
+<div class="file-card">
+    <div class="file-thumb">
+        @if (_dataUri is not null)
+        {
+            <img src="@_dataUri" alt="@Arquivo.NomeArquivo" />
+        }
+        else
+        {
+            <span>@TipoArquivoLabels.Sigla(Arquivo.TipoArquivo)</span>
+        }
+        @if (Arquivo.Favorito)
+        {
+            <span class="star">&#9733;</span>
+        }
+        <div class="card-menu-wrap">
+            <button @ref="_menuGatilho" class="card-menu-btn" aria-label="Mais opções" @onclick="ToggleMenu" @onclick:stopPropagation>&#8942;</button>
+        </div>
+    </div>
+    <div class="file-info">
+        <p class="fname" title="@Arquivo.NomeArquivo">@Arquivo.NomeArquivo</p>
+        <p class="ftags">@(Arquivo.Tags.Count > 0 ? string.Join(", ", Arquivo.Tags) : "sem tags")</p>
+    </div>
+</div>
+
+@if (_menuOpen && _menuPos is not null)
+{
+    <div class="card-menu" style="position:fixed; right:auto; top:@(_menuPos.Value.Top)px; left:@(_menuPos.Value.Left)px; z-index:1000">
+        <div class="card-menu-item" @onclick="Favoritar" @onclick:stopPropagation>@(Arquivo.Favorito ? "Remover dos favoritos" : "Marcar como favorito")</div>
+        <div class="card-menu-item" @onclick="EditarTags" @onclick:stopPropagation>Editar tags</div>
+        <div class="card-menu-item" @onclick="AbrirLocalDoArquivo" @onclick:stopPropagation>Abrir local do arquivo</div>
+        @if (MostrarDesvincular)
+        {
+            <div class="card-menu-item" @onclick="Desvincular" @onclick:stopPropagation>Remover deste projeto</div>
+        }
+        <div class="card-menu-item danger" @onclick="Excluir" @onclick:stopPropagation>Excluir da biblioteca</div>
+    </div>
+}
+
+@code {
+    private const double LarguraMenu = 170;
+    private const double MargemViewport = 6;
+
+    private ElementReference _menuGatilho;
+    private bool _menuOpen;
+    private (double Top, double Left)? _menuPos;
+    private string? _dataUri;
+
+    [Parameter, EditorRequired]
+    public ArquivoDto Arquivo { get; set; } = null!;
+
+    [Parameter]
+    public bool MostrarDesvincular { get; set; }
+
+    [Parameter]
+    public EventCallback OnFavoritar { get; set; }
+
+    [Parameter]
+    public EventCallback OnEditarTags { get; set; }
+
+    [Parameter]
+    public EventCallback OnDesvincular { get; set; }
+
+    [Parameter]
+    public EventCallback OnExcluir { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (Arquivo.TipoArquivo is TipoArquivo.Imagem or TipoArquivo.Textura)
+        {
+            _dataUri = TentarCarregarDataUri();
+        }
+    }
+
+    private string? TentarCarregarDataUri()
+    {
+        try
+        {
+            var caminho = FileStorage.ResolverCaminhoAbsoluto(Arquivo.CaminhoRelativo);
+            if (!File.Exists(caminho))
+            {
+                return null;
+            }
+
+            var bytes = File.ReadAllBytes(caminho);
+            var mime = MimeDaExtensao(Path.GetExtension(caminho));
+            return $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+    }
+
+    private static string MimeDaExtensao(string extensao) => extensao.ToLowerInvariant() switch
+    {
+        ".png" => "image/png",
+        ".gif" => "image/gif",
+        ".webp" => "image/webp",
+        ".bmp" => "image/bmp",
+        _ => "image/jpeg"
+    };
+
+    private void FecharMenu() => _menuOpen = false;
+
+    private async Task ToggleMenu()
+    {
+        if (_menuOpen)
+        {
+            _menuOpen = false;
+            return;
+        }
+
+        var rect = await JsRuntime.InvokeAsync<ElementRect?>("jessInterop.getBoundingRect", _menuGatilho);
+        if (rect is null)
+        {
+            return;
+        }
+
+        var left = rect.Left;
+        left = Math.Max(MargemViewport, Math.Min(left, rect.ViewportWidth - LarguraMenu - MargemViewport));
+
+        _menuPos = (rect.Bottom + 2, left);
+        _menuOpen = true;
+    }
+
+    private Task Favoritar()
+    {
+        _menuOpen = false;
+        return OnFavoritar.InvokeAsync();
+    }
+
+    private Task EditarTags()
+    {
+        _menuOpen = false;
+        return OnEditarTags.InvokeAsync();
+    }
+
+    private Task AbrirLocalDoArquivo()
+    {
+        _menuOpen = false;
+        var caminho = FileStorage.ResolverCaminhoAbsoluto(Arquivo.CaminhoRelativo);
+        return FileDialogService.AbrirLocalDoArquivoAsync(caminho);
+    }
+
+    private Task Desvincular()
+    {
+        _menuOpen = false;
+        return OnDesvincular.InvokeAsync();
+    }
+
+    private Task Excluir()
+    {
+        _menuOpen = false;
+        return OnExcluir.InvokeAsync();
+    }
+}

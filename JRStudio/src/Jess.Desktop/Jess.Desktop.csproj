@@ -1,0 +1,53 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Jess.UI\Jess.UI.csproj" />
+    <ProjectReference Include="..\Jess.Application\Jess.Application.csproj" />
+    <ProjectReference Include="..\Jess.Infrastructure\Jess.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Servido via caminho relativo ao HostPage (wwwroot\index.html) em vez de _content/Jess.UI/..., para não depender da resolução de Static Web Assets de RCL no BlazorWebView. -->
+    <Content Include="..\Jess.UI\wwwroot\css\app.css" Link="wwwroot\css\app.css" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\Jess.UI\wwwroot\js\interop.js" Link="wwwroot\js\interop.js" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\Jess.UI\wwwroot\img\logo-mark.png" Link="wwwroot\img\logo-mark.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Resource (não Content): Window.Icon="app.ico" no XAML resolve por pack URI contra os
+         recursos embutidos do assembly, não por caminho de arquivo solto. ApplicationIcon (abaixo)
+         é um mecanismo MSBuild separado — grava o ícone nos recursos Win32 do .exe (o que o Explorer
+         mostra) — os dois apontam pro mesmo arquivo mas servem propósitos distintos. -->
+    <Resource Include="app.ico" />
+    <!-- Mesma logo-mark.png usada pela sidebar (Jess.UI), mas como Resource WPF nativo: a cópia em
+         wwwroot\img é servida ao WebView2 via HTTP relativo (esquema usado por app.css/interop.js);
+         aqui, dentro da barra de título nativa, o <Image> do WPF resolve por pack URI, não HTTP. -->
+    <Resource Include="..\Jess.UI\wwwroot\img\logo-mark.png" Link="Resources\logo-mark.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Hardcodet.NotifyIcon.Wpf" Version="2.0.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="9.0.120" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" Version="7.1.3" />
+    <PackageReference Include="Serilog.Extensions.Hosting" Version="10.0.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <Version>0.1.0</Version>
+    <Company>J.R Studio</Company>
+    <Product>J.R Studio</Product>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <!-- Sem isso, um publish self-contained inclui os recursos satélite do WPF/WinForms (textos de
+         diálogos nativos, etc.) pra ~13 idiomas que o app nunca usa, inflando o instalador à toa. -->
+    <SatelliteResourceLanguages>pt-BR</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+</Project>

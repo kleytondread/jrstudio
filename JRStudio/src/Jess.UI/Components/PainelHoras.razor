@@ -1,0 +1,220 @@
+@implements IDisposable
+@inject IRastreamentoHorasService HorasService
+@inject CronometroStateService CronometroState
+@inject ConfirmState ConfirmState
+
+@if (_carregando)
+{
+    <p class="page-sub">Carregando horas...</p>
+}
+else
+{
+    <div class="two-col" style="margin-bottom:16px">
+        <div class="panel">
+            <h3>Total registrado</h3>
+            <p style="font-family:var(--font-display);font-size:20px;font-weight:500;margin:0">@FormatarDuracao(_totalMinutos)</p>
+            <p style="font-size:12px;color:var(--text-secondary);margin:6px 0 0">
+                @(_valorPorHora is not null ? $"≈ {_valorPorHora.Value.ToString("C", BrCulture)}/hora" : "Nenhum registro concluído ainda")
+            </p>
+        </div>
+        <div class="panel">
+            <h3>Cronômetro</h3>
+            @if (CronometroAtivoAqui)
+            {
+                <p class="tab-placeholder">Cronômetro ativo neste projeto — use a barra lateral para pausar ou parar.</p>
+            }
+            else
+            {
+                <button class="primary" @onclick="IniciarAqui">Iniciar cronômetro neste projeto</button>
+            }
+        </div>
+    </div>
+
+    <div class="toolbar">
+        <span></span>
+        <button @onclick="AbrirRegistroManual">+ Registro manual</button>
+    </div>
+
+    @if (_registros.Count == 0)
+    {
+        <p class="page-sub">Nenhuma sessão registrada ainda.</p>
+    }
+    else
+    {
+        @foreach (var registro in _registros)
+        {
+            <div class="session-block">
+                <div class="session-row">
+                    <span>@registro.InicioSessao.ToString("dd/MM/yyyy")@(TemNotaUnica(registro) ? $" · {registro.Nota}" : "")</span>
+                    @if (registro.Status != StatusRegistroHoras.Concluido)
+                    {
+                        <span class="cat-badge">@StatusLabel(registro.Status)</span>
+                    }
+                    else
+                    {
+                        <span style="display:flex;align-items:center;gap:8px">
+                            <strong>@FormatarDuracao(registro.DuracaoMinutos)</strong>
+                            <button class="ghost" @onclick="() => AbrirEditar(registro)">Editar</button>
+                            <button class="ghost" @onclick="() => Excluir(registro)">Excluir</button>
+                        </span>
+                    }
+                </div>
+
+                @if (registro.Segmentos.Count > 0)
+                {
+                    @foreach (var segmento in registro.Segmentos)
+                    {
+                        <div class="session-subrow">
+                            <span class="cat-badge">@CategoriaHorasLabels.Texto(segmento.Categoria)</span>
+                            <span>@FormatarDuracao(segmento.DuracaoMinutos)</span>
+                            @if (!string.IsNullOrWhiteSpace(segmento.Nota))
+                            {
+                                <span>@segmento.Nota</span>
+                            }
+                        </div>
+                    }
+                    @if (registro.Origem == OrigemRegistroHoras.Manual)
+                    {
+                        <div class="session-subrow">
+                            <span class="cat-badge origin-badge">Manual</span>
+                        </div>
+                    }
+                }
+                else if (registro.Categoria is not null || registro.Origem == OrigemRegistroHoras.Manual)
+                {
+                    <div class="session-subrow">
+                        @if (registro.Categoria is not null)
+                        {
+                            <span class="cat-badge">@CategoriaHorasLabels.Texto(registro.Categoria.Value)</span>
+                        }
+                        @if (registro.Origem == OrigemRegistroHoras.Manual)
+                        {
+                            <span class="cat-badge origin-badge">Manual</span>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    }
+}
+
+<SessaoFormModal IsOpen="_modalAberto" Editing="_editando" OnClose="() => _modalAberto = false" OnSubmit="Salvar" />
+
+@code {
+    private static readonly System.Globalization.CultureInfo BrCulture = new("pt-BR");
+
+    private List<RegistroHorasDto> _registros = [];
+    private bool _carregando = true;
+    private int? _ultimoProjetoId;
+    private int _totalMinutos;
+    private decimal? _valorPorHora;
+    private bool _ultimoAtivoAqui;
+
+    private bool _modalAberto;
+    private RegistroHorasDto? _editando;
+
+    [Parameter, EditorRequired]
+    public int ProjetoId { get; set; }
+
+    [Parameter, EditorRequired]
+    public decimal ValorTotalAcordado { get; set; }
+
+    private bool CronometroAtivoAqui => CronometroState.Ativo?.ProjetoId == ProjetoId;
+
+    protected override void OnInitialized()
+    {
+        CronometroState.OnChange += HandleChange;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_ultimoProjetoId == ProjetoId)
+        {
+            return;
+        }
+
+        _ultimoProjetoId = ProjetoId;
+        await CarregarAsync();
+    }
+
+    private void HandleChange()
+    {
+        if (CronometroAtivoAqui == _ultimoAtivoAqui)
+        {
+            return;
+        }
+
+        _ = InvokeAsync(async () =>
+        {
+            await CarregarAsync();
+            StateHasChanged();
+        });
+    }
+
+    private async Task CarregarAsync()
+    {
+        _carregando = true;
+        _registros = (await HorasService.ListarPorProjetoAsync(ProjetoId)).ToList();
+        _totalMinutos = _registros.Where(r => r.Status == StatusRegistroHoras.Concluido).Sum(r => r.DuracaoMinutos);
+        _valorPorHora = await HorasService.ObterValorPorHoraAsync(ProjetoId, ValorTotalAcordado);
+        _ultimoAtivoAqui = CronometroAtivoAqui;
+        _carregando = false;
+    }
+
+    private Task IniciarAqui() => CronometroUiHelper.IniciarComConfirmacaoAsync(CronometroState, ConfirmState, ProjetoId);
+
+    private void AbrirRegistroManual()
+    {
+        _editando = null;
+        _modalAberto = true;
+    }
+
+    private void AbrirEditar(RegistroHorasDto registro)
+    {
+        _editando = registro;
+        _modalAberto = true;
+    }
+
+    private async Task Salvar(List<SegmentoInput> segmentos)
+    {
+        if (_editando is null)
+        {
+            await HorasService.RegistrarManualAsync(ProjetoId, DateTime.Now, segmentos);
+        }
+        else
+        {
+            await HorasService.SalvarSegmentosAsync(_editando.Id, segmentos);
+        }
+
+        _modalAberto = false;
+        await CarregarAsync();
+    }
+
+    private async Task Excluir(RegistroHorasDto registro)
+    {
+        var confirmado = await ConfirmState.ConfirmarAsync("Excluir esse registro de horas?", "Excluir registro");
+        if (!confirmado)
+        {
+            return;
+        }
+
+        await HorasService.ExcluirAsync(registro.Id);
+        await CarregarAsync();
+    }
+
+    private static bool TemNotaUnica(RegistroHorasDto registro) => registro.Segmentos.Count == 0 && !string.IsNullOrWhiteSpace(registro.Nota);
+
+    private static string StatusLabel(StatusRegistroHoras status) => status switch
+    {
+        StatusRegistroHoras.EmAndamento => "Em andamento",
+        StatusRegistroHoras.Pausado => "Pausado",
+        _ => ""
+    };
+
+    private static string FormatarDuracao(int minutos) => $"{minutos / 60}h{minutos % 60:D2}";
+
+    public void Dispose()
+    {
+        CronometroState.OnChange -= HandleChange;
+    }
+}

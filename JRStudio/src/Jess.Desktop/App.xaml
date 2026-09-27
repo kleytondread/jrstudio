@@ -1,0 +1,59 @@
+﻿<Application x:Class="Jess.Desktop.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Jess.Desktop">
+    <Application.Resources>
+        <!-- Paleta espelhada de Jess.UI/wwwroot/css/app.css (:root e :root[data-theme="dark"]) —
+             a barra de título é WPF nativo, fora do WebView2, então não enxerga as variáveis CSS.
+             O tema (claro/escuro) é escolhido uma vez, na inicialização (App.xaml.cs), a partir do
+             registro do Windows; não muda ao vivo se a usuária trocar o tema do SO com o app aberto. -->
+        <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="#EDEAE3" />
+        <SolidColorBrush x:Key="TitleBarForegroundBrush" Color="#1F2421" />
+        <SolidColorBrush x:Key="TitleBarButtonHoverBrush" Color="#F5F3EE" />
+        <SolidColorBrush x:Key="TitleBarCloseHoverBrush" Color="#B34632" />
+        <SolidColorBrush x:Key="TitleBarCloseHoverForegroundBrush" Color="#FFFFFF" />
+
+        <Style x:Key="CaptionButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="46" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource TitleBarForegroundBrush}" />
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bg" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource TitleBarButtonHoverBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="CloseButtonStyle" TargetType="Button" BasedOn="{StaticResource CaptionButtonStyle}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bg" Background="{TemplateBinding Background}">
+                            <ContentPresenter x:Name="Content" HorizontalAlignment="Center" VerticalAlignment="Center" TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource TitleBarCloseHoverBrush}" />
+                                <Setter TargetName="Content" Property="TextElement.Foreground" Value="{DynamicResource TitleBarCloseHoverForegroundBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Application.Resources>
+</Application>

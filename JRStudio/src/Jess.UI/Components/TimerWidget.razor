@@ -1,0 +1,134 @@
+@implements IDisposable
+@inject CronometroStateService CronometroState
+@inject IProjetoService ProjetoService
+@inject ConfirmState ConfirmState
+@inject IJSRuntime JsRuntime
+
+<div class="timer-widget">
+    <p class="timer-label">Cronômetro</p>
+    <p class="timer-project">@(CronometroState.Ativo is not null ? CronometroState.ProjetoNomeAtivo : "Nenhum projeto ativo")</p>
+    <p class="timer-clock">@FormatarTempo(CronometroState.TempoDecorrido)</p>
+
+    @if (_mostrandoSeletor)
+    {
+        <select @bind="_projetoSelecionadoId" style="width:100%;margin-bottom:6px;font-size:12px;padding:6px 8px">
+            @foreach (var projeto in _projetos)
+            {
+                <option value="@projeto.Id">@projeto.Nome</option>
+            }
+        </select>
+        <div style="display:flex;gap:6px">
+            <button class="small primary" style="flex:1" @onclick="ConfirmarIniciarComSelecao">Iniciar</button>
+            <button class="small" @onclick="() => _mostrandoSeletor = false">Cancelar</button>
+        </div>
+    }
+    else if (CronometroState.Ativo is null)
+    {
+        <div class="timer-controls">
+            <button class="small primary" @onclick="AbrirSeletor">Iniciar</button>
+            <button class="small" disabled>Parar</button>
+        </div>
+    }
+    else if (CronometroState.Ativo.Status == StatusRegistroHoras.Pausado)
+    {
+        <div class="timer-controls">
+            <button class="small primary" @onclick="() => CronometroState.RetomarAsync()">Retomar</button>
+            <button class="small" @onclick="AbrirResumoParar">Parar</button>
+        </div>
+    }
+    else
+    {
+        <div class="timer-controls">
+            <button class="small" @onclick="() => CronometroState.PausarAsync()">Pausar</button>
+            <button class="small" @onclick="AbrirResumoParar">Parar</button>
+        </div>
+    }
+</div>
+
+@if (_mostrandoResumo)
+{
+    <div class="modal-overlay">
+        <div class="modal-card">
+            <h2>Sessão concluída</h2>
+            <p class="modal-sub">Você trabalhou @FormatarTempo(CronometroState.TempoDecorrido) no projeto @CronometroState.ProjetoNomeAtivo.</p>
+
+            <div class="field">
+                <label for="tw-categoria">Categoria</label>
+                <select id="tw-categoria" @bind="_categoriaResumo">
+                    @foreach (var categoria in CategoriaHorasLabels.Todas)
+                    {
+                        <option value="@categoria">@CategoriaHorasLabels.Texto(categoria)</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label for="tw-nota">Nota</label>
+                <input id="tw-nota" @bind="_notaResumo" placeholder="Opcional" />
+            </div>
+
+            <div class="modal-actions">
+                <button @onclick="() => _mostrandoResumo = false">Cancelar</button>
+                <button class="primary" @onclick="ConfirmarParar">Salvar</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _mostrandoSeletor;
+    private bool _mostrandoResumo;
+    private List<ProjetoDto> _projetos = [];
+    private int _projetoSelecionadoId;
+    private CategoriaHoras _categoriaResumo = CategoriaHoras.Detalhamento;
+    private string? _notaResumo;
+
+    protected override async Task OnInitializedAsync()
+    {
+        CronometroState.OnChange += HandleChange;
+        await CronometroState.InicializarAsync();
+    }
+
+    private void HandleChange() => InvokeAsync(StateHasChanged);
+
+    private async Task AbrirSeletor()
+    {
+        _projetos = (await ProjetoService.ListarAsync())
+            .Where(p => p.Status != StatusProjeto.Concluido)
+            .ToList();
+
+        if (_projetos.Count == 0)
+        {
+            await JsRuntime.InvokeVoidAsync("alert", "Nenhum projeto disponível para apontar horas. Crie um projeto primeiro.");
+            return;
+        }
+
+        _projetoSelecionadoId = _projetos[0].Id;
+        _mostrandoSeletor = true;
+    }
+
+    private async Task ConfirmarIniciarComSelecao()
+    {
+        _mostrandoSeletor = false;
+        await CronometroUiHelper.IniciarComConfirmacaoAsync(CronometroState, ConfirmState, _projetoSelecionadoId);
+    }
+
+    private void AbrirResumoParar()
+    {
+        _categoriaResumo = CategoriaHoras.Detalhamento;
+        _notaResumo = null;
+        _mostrandoResumo = true;
+    }
+
+    private async Task ConfirmarParar()
+    {
+        await CronometroState.PararAsync(_categoriaResumo, _notaResumo);
+        _mostrandoResumo = false;
+    }
+
+    private static string FormatarTempo(TimeSpan tempo) => tempo.ToString(@"hh\:mm\:ss");
+
+    public void Dispose()
+    {
+        CronometroState.OnChange -= HandleChange;
+    }
+}

@@ -1,0 +1,17 @@
+# Build output (.NET)
+**/bin/
+**/obj/
+
+# Instalador gerado (o Setup.exe vai como asset de Release do GitHub, não versionado aqui)
+JRStudio/installer/Output/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Configuração local do Claude Code — não faz parte do projeto
+.claude/
+
+# Capturas de tela usadas durante depuração — não são entregável do projeto
+imagens_debug/

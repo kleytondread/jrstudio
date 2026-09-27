@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>J.R Studio — Protótipo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #EDEAE3;
+    --surface: #FFFFFF;
+    --surface-alt: #F5F3EE;
+    --border: rgba(31,36,33,0.12);
+    --border-strong: rgba(31,36,33,0.24);
+    --text-primary: #1F2421;
+    --text-secondary: #666B67;
+    --text-muted: #9A9D97;
+    --accent: #1C4E68;
+    --accent-light: #E1EBEF;
+    --accent-text: #123448;
+    --danger: #B34632;
+    --danger-bg: #F6E4DF;
+    --danger-text: #7A2E1E;
+    --warning: #B9822F;
+    --warning-bg: #F8ECD9;
+    --warning-text: #7C5316;
+    --success: #4F7A52;
+    --success-bg: #E4EEE1;
+    --success-text: #33512F;
+    --font-sans: 'Inter', system-ui, sans-serif;
+    --font-display: 'Space Grotesk', var(--font-sans);
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14171A; --surface: #1D2123; --surface-alt: #23282A;
+      --border: rgba(255,255,255,0.09); --border-strong: rgba(255,255,255,0.2);
+      --text-primary: #EDEEEC; --text-secondary: #A7ACA8; --text-muted: #74786F;
+      --accent: #74AFC9; --accent-light: #1E3540; --accent-text: #BFE0EE;
+      --danger: #E08468; --danger-bg: #3B241D; --danger-text: #F3C3B2;
+      --warning: #E0B15E; --warning-bg: #3A2E17; --warning-text: #F2D8A4;
+      --success: #8FBE8B; --success-bg: #223526; --success-text: #C7E2C2;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14171A; --surface: #1D2123; --surface-alt: #23282A;
+    --border: rgba(255,255,255,0.09); --border-strong: rgba(255,255,255,0.2);
+    --text-primary: #EDEEEC; --text-secondary: #A7ACA8; --text-muted: #74786F;
+    --accent: #74AFC9; --accent-light: #1E3540; --accent-text: #BFE0EE;
+    --danger: #E08468; --danger-bg: #3B241D; --danger-text: #F3C3B2;
+    --warning: #E0B15E; --warning-bg: #3A2E17; --warning-text: #F2D8A4;
+    --success: #8FBE8B; --success-bg: #223526; --success-text: #C7E2C2;
+  }
+
+  * { box-sizing: border-box; }
+  body { background: var(--bg); font-family: var(--font-sans); color: var(--text-primary); margin:0; }
+
+  .app-frame {
+    position: relative;
+    border: 0.5px solid var(--border-strong);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    max-width: 1120px;
+    margin: 0 auto;
+  }
+  .titlebar {
+    height: 34px;
+    background: var(--surface-alt);
+    border-bottom: 0.5px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 12px;
+    font-size: 12px; color: var(--text-secondary);
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot.r { background: #E5645A; } .dot.y { background: #E5B75A; } .dot.g { background: #63BA6B; }
+  .titlebar-title { flex:1; text-align:center; font-family: var(--font-display); font-weight: 500; }
+
+  .shell { display: flex; min-height: 600px; }
+
+  .sidebar {
+    width: 220px; flex-shrink: 0;
+    background: var(--surface-alt);
+    border-right: 0.5px solid var(--border);
+    display: flex; flex-direction: column;
+    padding: 18px 12px;
+  }
+  .brand { font-family: var(--font-display); font-weight: 600; font-size: 17px; padding: 0 8px 18px; letter-spacing: -0.01em; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 10px; border-radius: var(--radius);
+    font-size: 14px; color: var(--text-secondary);
+    cursor: pointer; user-select: none; margin-bottom: 2px;
+  }
+  .nav-item:hover { background: var(--border); }
+  .nav-item.active { background: var(--accent-light); color: var(--accent-text); font-weight: 500; }
+  .nav-icon { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.85; }
+  .nav-spacer { flex: 1; }
+
+  .timer-widget {
+    background: var(--surface); border: 0.5px solid var(--border);
+    border-radius: var(--radius); padding: 12px; margin-top: 12px;
+  }
+  .timer-label { font-size: 11px; color: var(--text-muted); margin-bottom: 2px; }
+  .timer-project { font-size: 13px; font-weight: 500; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .timer-clock { font-family: var(--font-display); font-size: 20px; font-weight: 500; margin-bottom: 8px; font-variant-numeric: tabular-nums; }
+  .timer-controls { display: flex; gap: 6px; }
+
+  .content { flex: 1; min-width: 0; padding: 24px 28px; background: var(--surface); overflow: auto; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  h1.page-title { font-family: var(--font-display); font-size: 20px; font-weight: 500; margin: 0 0 4px; }
+  p.page-sub { font-size: 13px; color: var(--text-secondary); margin: 0 0 20px; }
+
+  button {
+    font-family: var(--font-sans); font-size: 13px; cursor: pointer;
+    border-radius: var(--radius); border: 0.5px solid var(--border-strong);
+    background: var(--surface); color: var(--text-primary); padding: 7px 13px;
+  }
+  button:hover { background: var(--surface-alt); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.primary:hover { opacity: 0.92; }
+  button.ghost { border-color: transparent; background: transparent; padding: 5px 8px; }
+  button.small { padding: 4px 9px; font-size: 12px; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; margin-bottom: 22px; }
+  .metric-card { background: var(--surface-alt); border-radius: var(--radius); padding: 16px; }
+  .metric-label { font-size: 12px; color: var(--text-secondary); margin: 0 0 6px; }
+  .metric-value { font-family: var(--font-display); font-size: 24px; font-weight: 500; margin: 0; }
+
+  .two-col { display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; }
+  .panel { background: var(--surface-alt); border-radius: var(--radius); padding: 16px; }
+  .panel h3 { font-size: 13px; font-weight: 500; margin: 0 0 10px; }
+  .list-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 0.5px solid var(--border); font-size: 13px; }
+  .list-row:last-child { border-bottom: none; }
+  .prio-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+  .badge { font-size: 11px; padding: 3px 9px; border-radius: 20px; font-weight: 500; white-space: nowrap; }
+  .badge.status-Orcamento { background: var(--surface); color: var(--text-secondary); border: 0.5px solid var(--border-strong); }
+  .badge.status-EmAndamento { background: var(--accent-light); color: var(--accent-text); }
+  .badge.status-Pausado { background: var(--warning-bg); color: var(--warning-text); }
+  .badge.status-Concluido { background: var(--success-bg); color: var(--success-text); }
+  .badge.pay-Pendente { background: var(--warning-bg); color: var(--warning-text); }
+  .badge.pay-Recebido { background: var(--success-bg); color: var(--success-text); }
+  .badge.pay-Atrasado { background: var(--danger-bg); color: var(--danger-text); }
+  select.badge { border: none; cursor: pointer; padding: 3px 8px 3px 9px; }
+  select.badge:focus { outline: 1.5px solid var(--border-strong); }
+
+  .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; gap: 10px; }
+  .filters { display: flex; gap: 8px; }
+  select { font-family: var(--font-sans); font-size: 13px; padding: 6px 10px; border-radius: var(--radius); border: 0.5px solid var(--border-strong); background: var(--surface); color: var(--text-primary); }
+
+  .project-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .project-card { background: var(--surface-alt); border-radius: 12px; padding: 16px; cursor: pointer; border: 0.5px solid transparent; transition: border-color .1s; position: relative; }
+  .project-card:hover { border-color: var(--border-strong); }
+  .project-card .name { font-weight: 500; font-size: 14px; margin: 0 3px 3px 0; padding-right: 22px; }
+  .project-card .client { font-size: 12px; color: var(--text-secondary); margin: 0 0 12px; }
+  .project-card .row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
+  .card-menu-wrap { position: absolute; top: 10px; right: 10px; }
+  .card-menu-btn { background: transparent; border: none; font-size: 16px; line-height: 1; padding: 4px 7px; border-radius: var(--radius); color: var(--text-secondary); cursor: pointer; }
+  .card-menu-btn:hover { background: var(--surface); }
+  .card-menu {
+    position: absolute; top: 28px; right: 0; z-index: 10; overflow: hidden;
+    background: var(--surface); border: 0.5px solid var(--border-strong); border-radius: var(--radius);
+    min-width: 130px; box-shadow: 0 4px 14px rgba(0,0,0,0.14);
+  }
+  .card-menu-item { padding: 9px 13px; font-size: 13px; cursor: pointer; }
+  .card-menu-item:hover { background: var(--surface-alt); }
+  .card-menu-item.danger { color: var(--danger); }
+
+  .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); cursor: pointer; margin-bottom: 14px; }
+  .back-link:hover { color: var(--text-primary); }
+
+  .detail-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+  .tabs { display: flex; gap: 20px; border-bottom: 0.5px solid var(--border); margin-bottom: 18px; }
+  .tab { font-size: 13px; color: var(--text-secondary); padding: 0 0 9px; cursor: pointer; border-bottom: 2px solid transparent; }
+  .tab.active { color: var(--accent-text); border-bottom-color: var(--accent); font-weight: 500; }
+
+  .fase-block { border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
+  .fase-block:last-child { margin-bottom: 0; }
+  .fase-block-header { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; background: var(--surface-alt); padding: 12px 16px; }
+  .fase-block-chevron { font-size: 10px; color: var(--text-secondary); }
+  .fase-block-title { font-size: 14px; font-weight: 500; }
+  .fase-block-count { font-size: 13px; color: var(--text-secondary); }
+  .fase-block-body { background: var(--surface); padding: 18px 16px; }
+  .fase-scroll {
+    overflow-x: auto;
+    padding-bottom: 10px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+  .fase-scroll::-webkit-scrollbar { height: 8px; }
+  .fase-scroll::-webkit-scrollbar-track { background: transparent; }
+  .fase-scroll::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+  .fase-scroll::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+  .fase-cols { display: grid; grid-template-columns: repeat(3, minmax(230px, 1fr)); gap: 28px; min-width: 720px; }
+  .fase-col .kcol-title { font-size: 12px; color: var(--text-muted); margin: 0 0 12px; font-weight: 500; }
+  .swimlane-empty { font-size: 12px; color: var(--text-muted); padding: 4px 2px; }
+  .swimlane-add { font-size: 12px; color: var(--text-secondary); cursor: pointer; padding: 4px 2px; margin-top: 2px; }
+  .swimlane-add:hover { color: var(--text-primary); }
+  .menu-wrap-inline { position: relative; flex-shrink: 0; }
+  .kcol-title { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
+  .kcard { background: var(--surface-alt); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 8px; position: relative; }
+  .kcard.done { opacity: 0.6; }
+  .kcard .title { font-size: 13px; margin: 0 0 8px; padding-right: 18px; }
+  .kcard.done .title { text-decoration: line-through; }
+  .kcard .meta { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-muted); }
+  .kcard .moves { display: flex; gap: 4px; margin-top: 8px; }
+  .task-menu-wrap { position: absolute; top: 6px; right: 6px; }
+  .task-menu-wrap .card-menu-btn { padding: 2px 5px; font-size: 14px; }
+  .quick-add { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted); border: 0.5px dashed var(--border-strong); border-radius: var(--radius); padding: 8px 12px; margin-bottom: 16px; }
+
+  .fin-summary { display: flex; gap: 24px; margin-bottom: 16px; }
+  .fin-summary div p:first-child { font-size: 12px; color: var(--text-secondary); margin: 0 0 3px; }
+  .fin-summary div p:last-child { font-family: var(--font-display); font-size: 18px; font-weight: 500; margin: 0; }
+  table.pay-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.pay-table th { text-align: left; font-size: 11px; color: var(--text-muted); font-weight: 500; padding: 0 0 8px; }
+  table.pay-table td { padding: 10px 0; border-top: 0.5px solid var(--border); }
+
+  .timer-hero { background: var(--surface-alt); border-radius: 12px; padding: 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+  .timer-hero .clock { font-family: var(--font-display); font-size: 32px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .timer-hero .sub { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+  .session-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 9px 0; }
+  .session-block { border-bottom: 0.5px solid var(--border); padding-bottom: 2px; }
+  .session-block:last-child { border-bottom: none; }
+  .session-note { font-size: 12px; color: var(--text-secondary); margin: -4px 0 9px; }
+  .session-subrow { display: flex; align-items: center; gap: 10px; font-size: 12px; padding: 6px 0 6px 4px; border-top: 0.5px dashed var(--border); color: var(--text-secondary); }
+  .cat-badge { font-size: 11px; padding: 2px 9px; border-radius: 20px; background: var(--surface-alt); color: var(--text-secondary); white-space: nowrap; }
+
+  .tag-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+  .tag-chip { font-size: 12px; padding: 5px 12px; border-radius: 20px; border: 0.5px solid var(--border-strong); color: var(--text-secondary); cursor: pointer; background: var(--surface); }
+  .tag-chip.active { background: var(--accent-light); color: var(--accent-text); border-color: transparent; }
+  .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+  .file-card { background: var(--surface-alt); border-radius: var(--radius); border: 0.5px solid var(--border); overflow: hidden; }
+  .file-thumb { height: 74px; background: var(--surface); display: flex; align-items: center; justify-content: center; color: var(--text-muted); position: relative; }
+  .file-info { padding: 8px; }
+  .file-info .fname { font-size: 12px; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-info .fproj { font-size: 11px; color: var(--text-secondary); margin: 2px 0 0; }
+  .star { position: absolute; top: 6px; right: 6px; color: var(--warning); font-size: 13px; }
+
+  .modal-overlay {
+    position: absolute; inset: 0; z-index: 50;
+    background: rgba(0,0,0,0.45);
+    display: none; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-card {
+    background: var(--surface); border-radius: 12px; padding: 22px 24px;
+    width: 440px; max-width: 100%; max-height: 100%; overflow: auto;
+  }
+  .modal-card h2 { font-family: var(--font-display); font-size: 17px; font-weight: 500; margin: 0 0 4px; }
+  .modal-card .modal-sub { font-size: 12px; color: var(--text-secondary); margin: 0 0 18px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 5px; }
+  .field input, .field select {
+    width: 100%; font-family: var(--font-sans); font-size: 13px;
+    padding: 8px 10px; border-radius: var(--radius); border: 0.5px solid var(--border-strong);
+    background: var(--surface); color: var(--text-primary);
+  }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field-error { font-size: 12px; color: var(--danger); margin-top: 4px; display: none; }
+  .field.invalid input { border-color: var(--danger); }
+  .field.invalid .field-error { display: block; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+  .seg-row { border: 0.5px solid var(--border); border-radius: var(--radius); padding: 10px 12px 12px; margin-bottom: 10px; }
+  .seg-row-line { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 10px; }
+  .seg-row-line .field { margin-bottom: 0; }
+</style>
+</head>
+<body>
+
+<div class="app-frame">
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="titlebar-title">J.R Studio</span>
+  </div>
+  <div class="shell">
+    <nav class="sidebar">
+      <div class="brand">J.R Studio</div>
+      <div class="nav-item active" data-view="dashboard" onclick="showView('dashboard')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dashboard
+      </div>
+      <div class="nav-item" data-view="projetos" onclick="showView('projetos')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7l3-4h5l2 2h8v13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7z"/></svg>
+        Projetos
+      </div>
+      <div class="nav-item" data-view="biblioteca" onclick="showView('biblioteca')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="9.5" r="1.8"/><path d="M21 15l-5-5-9 9"/></svg>
+        Biblioteca
+      </div>
+      <div class="nav-item" data-view="configuracoes" onclick="showView('configuracoes')">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Configurações
+      </div>
+      <div class="nav-spacer"></div>
+      <div class="timer-widget">
+        <p class="timer-label">Cronômetro</p>
+        <p class="timer-project" id="timer-project-label">Nenhum projeto ativo</p>
+        <p class="timer-clock" id="timer-clock">00:00:00</p>
+        <div class="timer-controls" id="timer-controls">
+          <button class="small primary" id="timer-btn-start" onclick="timerToggleStart()">Iniciar</button>
+          <button class="small" id="timer-btn-stop" onclick="timerStop()" disabled>Parar</button>
+        </div>
+        <div id="timer-picker" style="display:none">
+          <select id="timer-project-select" style="width:100%;margin-bottom:6px;font-size:12px;padding:6px 8px"></select>
+          <div style="display:flex;gap:6px">
+            <button class="small primary" onclick="confirmTimerStart()" style="flex:1">Iniciar</button>
+            <button class="small" onclick="cancelTimerPicker()">Cancelar</button>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <main class="content">
+
+      <section class="view active" id="view-dashboard">
+        <h1 class="page-title">Bom dia</h1>
+        <p class="page-sub">Aqui está o resumo dos seus projetos hoje.</p>
+        <div class="metric-grid">
+          <div class="metric-card"><p class="metric-label">Tarefas hoje</p><p class="metric-value">4</p></div>
+          <div class="metric-card"><p class="metric-label">A receber este mês</p><p class="metric-value">R$ 8.400</p></div>
+          <div class="metric-card"><p class="metric-label">Projetos ativos</p><p class="metric-value">5</p></div>
+        </div>
+        <div class="two-col">
+          <div class="panel">
+            <h3>Tarefas próximas</h3>
+            <div class="list-row"><span class="prio-dot" style="background:var(--danger)"></span><span style="flex:1">Enviar planta baixa — Casa Marina</span><span style="color:var(--text-muted)">hoje</span></div>
+            <div class="list-row"><span class="prio-dot" style="background:var(--warning)"></span><span style="flex:1">Reunião com cliente — Loft Central</span><span style="color:var(--text-muted)">amanhã</span></div>
+            <div class="list-row"><span class="prio-dot" style="background:var(--text-muted)"></span><span style="flex:1">Selecionar revestimentos — Studio 21</span><span style="color:var(--text-muted)">sexta</span></div>
+          </div>
+          <div class="panel">
+            <h3>Pagamentos próximos</h3>
+            <div class="list-row" style="display:block"><div style="display:flex;justify-content:space-between"><span>Casa Marina</span><span style="color:var(--text-muted)">3 dias</span></div><div style="color:var(--text-secondary);font-size:12px;margin-top:2px">R$ 3.000</div></div>
+            <div class="list-row" style="display:block;border-bottom:none"><div style="display:flex;justify-content:space-between"><span>Loft Central</span><span style="color:var(--text-muted)">10 dias</span></div><div style="color:var(--text-secondary);font-size:12px;margin-top:2px">R$ 2.200</div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-projetos">
+        <div class="toolbar">
+          <div>
+            <h1 class="page-title" style="margin-bottom:0">Projetos</h1>
+          </div>
+          <button class="primary" onclick="openProjectModal()">+ Novo projeto</button>
+        </div>
+        <div class="tag-row" id="project-tag-row"></div>
+        <div class="project-grid" id="project-grid"></div>
+      </section>
+
+      <section class="view" id="view-detalhe">
+        <span class="back-link" onclick="showView('projetos')">&larr; Voltar para projetos</span>
+        <div class="detail-header">
+          <div>
+            <h1 class="page-title" id="det-name" style="margin-bottom:2px"></h1>
+            <p class="page-sub" id="det-client" style="margin-bottom:0"></p>
+          </div>
+          <select class="badge" id="det-status" onchange="changeProjectStatus(this.value)"></select>
+        </div>
+        <div class="tabs" id="det-tabs"></div>
+        <div id="det-tab-content"></div>
+      </section>
+
+      <section class="view" id="view-biblioteca">
+        <h1 class="page-title">Biblioteca de arquivos</h1>
+        <p class="page-sub">Imagens, texturas e referências reutilizáveis entre projetos.</p>
+        <div class="toolbar" style="margin-bottom:0">
+          <div class="tag-row" id="tag-row"></div>
+          <button>+ Importar arquivos</button>
+        </div>
+        <div class="file-grid" id="file-grid"></div>
+      </section>
+
+      <section class="view" id="view-configuracoes">
+        <h1 class="page-title">Configurações</h1>
+        <p class="page-sub">Backup e restauração dos dados do aplicativo.</p>
+
+        <div class="panel" style="margin-bottom:16px">
+          <h3>Fazer backup</h3>
+          <p style="font-size:13px;color:var(--text-secondary);margin:0 0 14px">Gere um arquivo para guardar em outro lugar ou levar para um novo computador.</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="primary" onclick="fazerBackup('completo')">Backup completo (banco + arquivos)</button>
+            <button onclick="fazerBackup('dados')">Backup só dos dados de gestão</button>
+          </div>
+          <p style="font-size:12px;color:var(--text-muted);margin:12px 0 0">O backup completo inclui todas as imagens e texturas da Biblioteca. O backup só de dados gera um arquivo bem mais leve, sem os arquivos da Biblioteca.</p>
+        </div>
+
+        <div class="panel">
+          <h3>Restaurar backup</h3>
+          <p style="font-size:13px;color:var(--text-secondary);margin:0 0 14px">Selecione um arquivo de backup gerado anteriormente para restaurar o sistema.</p>
+          <button onclick="restaurarBackup()">Selecionar arquivo de backup...</button>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <div class="modal-overlay" id="new-project-modal">
+    <div class="modal-card">
+      <h2 id="modal-title">Novo projeto</h2>
+      <p class="modal-sub">Preencha os dados iniciais — você pode completar o resto depois.</p>
+
+      <div class="field" id="field-nome">
+        <label for="np-nome">Nome do projeto</label>
+        <input type="text" id="np-nome" placeholder="Ex: Casa Marina" oninput="document.getElementById('field-nome').classList.remove('invalid')">
+        <p class="field-error">Digite um nome para o projeto.</p>
+      </div>
+
+      <div class="field" id="field-cliente">
+        <label for="np-cliente">Cliente</label>
+        <input type="text" id="np-cliente" placeholder="Ex: Fernanda Souza" oninput="document.getElementById('field-cliente').classList.remove('invalid')">
+        <p class="field-error">Informe o cliente do projeto.</p>
+      </div>
+
+      <div class="field">
+        <label for="np-endereco">Endereço da obra</label>
+        <input type="text" id="np-endereco" placeholder="Ex: Rua das Palmeiras, 120">
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="np-inicio">Data de início</label>
+          <input type="date" id="np-inicio">
+        </div>
+        <div class="field">
+          <label for="np-prazo">Prazo estimado</label>
+          <input type="date" id="np-prazo">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="np-valor">Valor total acordado (R$)</label>
+          <input type="number" id="np-valor" placeholder="Ex: 15000" min="0">
+        </div>
+        <div class="field">
+          <label for="np-status">Status inicial</label>
+          <select id="np-status">
+            <option value="Orcamento">Orçamento</option>
+            <option value="EmAndamento">Em andamento</option>
+            <option value="Pausado">Pausado</option>
+            <option value="Concluido">Concluído</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button onclick="closeNewProjectModal()">Cancelar</button>
+        <button class="primary" id="modal-submit-btn" onclick="submitNewProject()">Criar projeto</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="session-modal">
+    <div class="modal-card" style="width:520px">
+      <h2 id="session-modal-title">Editar sessão</h2>
+      <p class="modal-sub">Data: <strong id="sess-data-display"></strong>. Ajuste a duração e categoria, ou adicione mais trechos para dividir o tempo.</p>
+      <input type="hidden" id="sess-data">
+
+      <div id="segmentos-container"></div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:4px 0 20px">
+        <button onclick="addSegmentRow()">+ Adicionar trecho</button>
+        <span style="font-size:13px;color:var(--text-secondary)">Total: <strong id="segmentos-total" style="color:var(--text-primary)">0h00</strong></span>
+      </div>
+
+      <div class="modal-actions">
+        <button onclick="closeSessionModal()">Cancelar</button>
+        <button class="primary" onclick="submitSessionForm()">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const statusLabel = { Orcamento: 'Orçamento', EmAndamento: 'Em andamento', Pausado: 'Pausado', Concluido: 'Concluído' };
+  const prioColor = { alta: 'var(--danger)', media: 'var(--warning)', baixa: 'var(--text-muted)' };
+  const CATEGORIAS_HORAS = ['Detalhamento', 'Reunião com cliente', 'Visita a obra', 'Administrativo', 'Outro'];
+
+  function formatDuracao(min) {
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return `${h}h${String(m).padStart(2, '0')}`;
+  }
+
+  function totalSessao(sessao) {
+    return sessao.segmentos.reduce((s, seg) => s + seg.duracaoMin, 0);
+  }
+  const FASE_PADRAO = ['Pré-projeto', 'Estudo preliminar', 'Anteprojeto', 'Projeto executivo'];
+
+  function criarFases(porNome) {
+    // porNome: { 'Nome da fase': { AFazer:[], Fazendo:[], Concluido:[] } }
+    return FASE_PADRAO.map(nome => ({
+      nome,
+      collapsed: false,
+      tasks: (porNome && porNome[nome]) || { AFazer: [], Fazendo: [], Concluido: [] },
+    }));
+  }
+
+  const projects = [
+    { id: 1, name: 'Casa Marina', client: 'Fernanda Souza', status: 'EmAndamento', deadline: '30/11/2026', total: 15000, received: 3000,
+      fases: criarFases({
+        'Pré-projeto': { AFazer: [], Fazendo: [], Concluido: [ {t:'Levantamento métrico'} ] },
+        'Estudo preliminar': { AFazer: [], Fazendo: [], Concluido: [ {t:'Aprovar layout inicial'} ] },
+        'Anteprojeto': { AFazer: [ {t:'Selecionar revestimento do banheiro', prio:'media', prazo:'sex'} ], Fazendo: [ {t:'Detalhamento das plantas elétricas', prio:'alta', prazo:'hoje'} ], Concluido: [] },
+        'Projeto executivo': { AFazer: [ {t:'Orçar mobiliário planejado', prio:'baixa', prazo:'sem prazo'} ], Fazendo: [], Concluido: [] },
+      }),
+      payments: [ {valor:3000, data:'15/08/2026', status:'Recebido'}, {valor:3000, data:'20/09/2026', status:'Pendente'}, {valor:3000, data:'20/10/2026', status:'Pendente'} ],
+      sessions: [
+        { data:'10/09', origem:'Cronômetro', segmentos:[ {duracaoMin:200, categoria:'Detalhamento', nota:'Detalhamento elétrico'} ] },
+        { data:'08/09', origem:'Manual', segmentos:[
+          {duracaoMin:60, categoria:'Reunião com cliente', nota:'Briefing inicial'},
+          {duracaoMin:60, categoria:'Administrativo', nota:'Organização de referências'}
+        ] },
+      ],
+      hoursTotal: 14.33 },
+    { id: 2, name: 'Loft Central', client: 'Rafael Nunes', status: 'EmAndamento', deadline: '15/12/2026', total: 11000, received: 8800,
+      fases: criarFases({
+        'Projeto executivo': { AFazer: [ {t:'Reunião com cliente', prio:'alta', prazo:'amanhã'} ], Fazendo: [], Concluido: [ {t:'Projeto executivo aprovado'} ] },
+      }),
+      payments: [ {valor:5500, data:'01/08/2026', status:'Recebido'}, {valor:3300, data:'01/09/2026', status:'Recebido'}, {valor:2200, data:'25/09/2026', status:'Pendente'} ],
+      sessions: [ { data:'05/09', origem:'Cronômetro', segmentos:[ {duracaoMin:250, categoria:'Visita a obra', nota:''} ] } ], hoursTotal: 22.1 },
+    { id: 3, name: 'Studio 21', client: 'Bianca Alves', status: 'Orcamento', deadline: '—', total: 6000, received: 0,
+      fases: criarFases({
+        'Estudo preliminar': { AFazer: [ {t:'Selecionar revestimentos', prio:'media', prazo:'sexta'} ], Fazendo: [], Concluido: [] },
+      }),
+      payments: [], sessions: [], hoursTotal: 0 },
+    { id: 4, name: 'Escritório Vetor', client: 'Vetor Engenharia', status: 'Pausado', deadline: '—', total: 22000, received: 9000,
+      fases: criarFases({
+        'Estudo preliminar': { AFazer: [], Fazendo: [], Concluido: [ {t:'Estudo preliminar'} ] },
+      }), payments: [ {valor:9000, data:'10/06/2026', status:'Recebido'} ], sessions: [], hoursTotal: 6 },
+    { id: 5, name: 'Residência Aroeira', client: 'Camila Prado', status: 'Concluido', deadline: 'Concluído em 20/07/2026', completedYear: 2026, total: 18000, received: 18000,
+      fases: criarFases({
+        'Projeto executivo': { AFazer: [], Fazendo: [], Concluido: [ {t:'Entrega final'}, {t:'Acompanhamento de obra'} ] },
+      }),
+      payments: [ {valor:18000, data:'20/07/2026', status:'Recebido'} ], sessions: [], hoursTotal: 40 },
+  ];
+
+  const files = [
+    { name: 'textura_madeira_01.jpg', tags: ['madeira'], projects: ['Casa Marina'] },
+    { name: 'porcelanato_bege.png', tags: ['piso porcelanato'], projects: ['Casa Marina','Loft Central','Studio 21'], fav: true },
+    { name: 'fachada_ref_03.jpg', tags: ['fachada moderna'], projects: ['Loft Central'] },
+    { name: 'memorial_descritivo.pdf', tags: [], projects: ['Studio 21'], isDoc: true },
+    { name: 'iluminacao_indireta_sala.jpg', tags: ['iluminação indireta'], projects: ['Loft Central'] },
+    { name: 'madeira_freijo.jpg', tags: ['madeira'], projects: ['Residência Aroeira'] },
+  ];
+  const allTags = ['madeira','piso porcelanato','fachada moderna','iluminação indireta'];
+  let activeTagFilter = null;
+  let currentProjectId = null;
+  let activeTab = 'geral';
+
+  function showView(name) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-' + name).classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === name));
+    if (name === 'projetos') renderProjectsList();
+    if (name === 'biblioteca') renderLibrary();
+  }
+
+  function fazerBackup(tipo) {
+    const hoje = new Date().toISOString().slice(0, 10);
+    const nomeArquivo = tipo === 'completo'
+      ? `JRStudio-backup-completo-${hoje}.zip`
+      : `JRStudio-backup-dados-${hoje}.zip`;
+    const descricao = tipo === 'completo'
+      ? 'banco de dados + todos os arquivos da Biblioteca'
+      : 'apenas o banco de dados (sem os arquivos da Biblioteca)';
+    alert(`Backup gerado: ${nomeArquivo}\n\nConteúdo: ${descricao}.\n\n(Neste protótipo a geração real do arquivo não está implementada — isso ilustra apenas o fluxo.)`);
+  }
+
+  function restaurarBackup() {
+    if (!confirm('Restaurar um backup substitui todos os dados atuais do aplicativo. Essa ação não pode ser desfeita. Deseja continuar?')) return;
+    alert('Neste protótipo a restauração real não está implementada — isso ilustra apenas o fluxo e o aviso de confirmação antes de uma ação destrutiva.');
+  }
+
+  const CURRENT_YEAR = 2026;
+  let activeProjectFilter = null;
+  let openCardMenuId = null;
+  let editingProjectId = null;
+  let openTaskMenuKey = null;
+  let openSessionMenuKey = null;
+  let editingSessionProjectId = null;
+  let editingSessionIdx = null;
+  let editingSegments = [];
+
+  function toggleCardMenu(id) {
+    openCardMenuId = openCardMenuId === id ? null : id;
+    renderProjectsList();
+  }
+
+  function toggleFaseCollapse(projectId, faseIdx) {
+    const p = projects.find(pr => pr.id === projectId);
+    p.fases[faseIdx].collapsed = !p.fases[faseIdx].collapsed;
+    renderProjectDetail();
+  }
+
+  function toggleTaskMenu(key) {
+    openTaskMenuKey = openTaskMenuKey === key ? null : key;
+    renderProjectDetail();
+  }
+
+  function editTask(projectId, faseIdx, colKey, taskIdx) {
+    const p = projects.find(pr => pr.id === projectId);
+    const task = p.fases[faseIdx].tasks[colKey][taskIdx];
+    const novoTitulo = prompt('Editar tarefa:', task.t);
+    openTaskMenuKey = null;
+    if (novoTitulo && novoTitulo.trim() !== '') task.t = novoTitulo.trim();
+    renderProjectDetail();
+  }
+
+  function deleteTask(projectId, faseIdx, colKey, taskIdx) {
+    const p = projects.find(pr => pr.id === projectId);
+    const task = p.fases[faseIdx].tasks[colKey][taskIdx];
+    openTaskMenuKey = null;
+    if (!confirm(`Excluir a tarefa "${task.t}"?`)) { renderProjectDetail(); return; }
+    p.fases[faseIdx].tasks[colKey].splice(taskIdx, 1);
+    renderProjectDetail();
+  }
+
+  function recomputeHoursTotal(p) {
+    const totalMin = p.sessions.reduce((s, sess) => s + totalSessao(sess), 0);
+    p.hoursTotal = Math.round((totalMin / 60) * 100) / 100;
+  }
+
+  function toggleSessionMenu(key) {
+    openSessionMenuKey = openSessionMenuKey === key ? null : key;
+    renderProjectDetail();
+  }
+
+  function deleteSession(projectId, sessionIdx) {
+    const p = projects.find(pr => pr.id === projectId);
+    openSessionMenuKey = null;
+    if (!confirm('Excluir esse registro de horas?')) { renderProjectDetail(); return; }
+    p.sessions.splice(sessionIdx, 1);
+    recomputeHoursTotal(p);
+    renderProjectDetail();
+  }
+
+  function openEditSession(projectId, sessionIdx) {
+    editingSessionProjectId = projectId;
+    editingSessionIdx = sessionIdx;
+    openSessionMenuKey = null;
+    const p = projects.find(pr => pr.id === projectId);
+    const sess = sessionIdx !== null && sessionIdx !== undefined ? p.sessions[sessionIdx] : null;
+    document.getElementById('session-modal-title').textContent = sess ? 'Editar sessão' : 'Adicionar registro manual';
+    document.getElementById('sess-data-display').textContent = sess ? sess.data : 'hoje';
+    editingSegments = sess ? sess.segmentos.map(seg => ({ ...seg })) : [{ duracaoMin: 60, categoria: CATEGORIAS_HORAS[0], nota: '' }];
+    renderSegmentRows();
+    document.getElementById('session-modal').classList.add('open');
+  }
+
+  function closeSessionModal() {
+    document.getElementById('session-modal').classList.remove('open');
+  }
+
+  function renderSegmentRows() {
+    const container = document.getElementById('segmentos-container');
+    container.innerHTML = editingSegments.map((seg, idx) => `
+      <div class="seg-row" data-idx="${idx}">
+        <div class="seg-row-line">
+          <div class="field" style="width:60px"><label>Horas</label><input type="number" min="0" class="seg-h" value="${Math.floor(seg.duracaoMin/60)}" onchange="updateSegmentosTotal()"></div>
+          <div class="field" style="width:60px"><label>Min</label><input type="number" min="0" max="59" class="seg-m" value="${seg.duracaoMin%60}" onchange="updateSegmentosTotal()"></div>
+          <div class="field" style="flex:1"><label>Categoria</label>
+            <select class="seg-cat">${CATEGORIAS_HORAS.map(c => `<option ${c===seg.categoria?'selected':''}>${c}</option>`).join('')}</select>
+          </div>
+          ${editingSegments.length > 1 ? `<button class="ghost" onclick="removeSegmentRow(${idx})" aria-label="Remover trecho" style="margin-top:20px">&#10005;</button>` : ''}
+        </div>
+        <div class="field"><label>Nota</label><input type="text" class="seg-nota" value="${seg.nota || ''}" placeholder="Opcional"></div>
+      </div>`).join('');
+    updateSegmentosTotal();
+  }
+
+  function readSegmentsFromDOM() {
+    return Array.from(document.querySelectorAll('.seg-row')).map(row => ({
+      duracaoMin: (parseInt(row.querySelector('.seg-h').value, 10) || 0) * 60 + (parseInt(row.querySelector('.seg-m').value, 10) || 0),
+      categoria: row.querySelector('.seg-cat').value,
+      nota: row.querySelector('.seg-nota').value.trim(),
+    }));
+  }
+
+  function updateSegmentosTotal() {
+    const segs = readSegmentsFromDOM();
+    const total = segs.reduce((s, seg) => s + seg.duracaoMin, 0);
+    document.getElementById('segmentos-total').textContent = formatDuracao(total);
+  }
+
+  function addSegmentRow() {
+    editingSegments = readSegmentsFromDOM();
+    editingSegments.push({ duracaoMin: 30, categoria: CATEGORIAS_HORAS[0], nota: '' });
+    renderSegmentRows();
+  }
+
+  function removeSegmentRow(idx) {
+    editingSegments = readSegmentsFromDOM();
+    editingSegments.splice(idx, 1);
+    renderSegmentRows();
+  }
+
+  function submitSessionForm() {
+    const segmentos = readSegmentsFromDOM();
+    if (segmentos.length === 0 || segmentos.every(s => s.duracaoMin === 0)) {
+      alert('Adicione ao menos um trecho com duração maior que zero.');
+      return;
+    }
+    const p = projects.find(pr => pr.id === editingSessionProjectId);
+    if (editingSessionIdx !== null && editingSessionIdx !== undefined) {
+      p.sessions[editingSessionIdx].segmentos = segmentos;
+    } else {
+      p.sessions.unshift({ data: 'hoje', origem: 'Manual', segmentos });
+    }
+    recomputeHoursTotal(p);
+    closeSessionModal();
+    renderProjectDetail();
+  }
+
+  document.addEventListener('click', () => {
+    let changed = false;
+    if (openCardMenuId !== null) { openCardMenuId = null; changed = true; }
+    if (openTaskMenuKey !== null) { openTaskMenuKey = null; changed = true; }
+    if (openSessionMenuKey !== null) { openSessionMenuKey = null; changed = true; }
+    if (!changed) return;
+    if (document.getElementById('view-projetos').classList.contains('active')) renderProjectsList();
+    if (document.getElementById('view-detalhe').classList.contains('active')) renderProjectDetail();
+  });
+
+  function matchesProjectFilter(p, filter) {
+    if (filter === 'andamento') return p.status === 'EmAndamento';
+    if (filter === 'concluidos') return p.status === 'Concluido';
+    if (filter === 'orcamento') return p.status === 'Orcamento';
+    if (filter === 'pausado') return p.status === 'Pausado';
+    if (filter === 'ano') return p.status === 'EmAndamento' || (p.status === 'Concluido' && p.completedYear === CURRENT_YEAR);
+    return true;
+  }
+
+  function renderProjectsList() {
+    const counts = {
+      andamento: projects.filter(p => matchesProjectFilter(p, 'andamento')).length,
+      concluidos: projects.filter(p => matchesProjectFilter(p, 'concluidos')).length,
+      orcamento: projects.filter(p => matchesProjectFilter(p, 'orcamento')).length,
+      pausado: projects.filter(p => matchesProjectFilter(p, 'pausado')).length,
+      ano: projects.filter(p => matchesProjectFilter(p, 'ano')).length,
+    };
+
+    const chips = [
+      { key: null, label: 'Todos' },
+      { key: 'andamento', label: `Em andamento (${counts.andamento})` },
+      { key: 'concluidos', label: `Concluídos (${counts.concluidos})` },
+      { key: 'orcamento', label: `Orçamento (${counts.orcamento})` },
+      { key: 'pausado', label: `Pausado (${counts.pausado})` },
+      { key: 'ano', label: `${CURRENT_YEAR} (${counts.ano})` },
+    ];
+    document.getElementById('project-tag-row').innerHTML = chips.map(c => `
+      <span class="tag-chip ${activeProjectFilter === c.key ? 'active' : ''}" onclick="setProjectFilter(${c.key ? `'${c.key}'` : null})">${c.label}</span>
+    `).join('');
+
+    const grid = document.getElementById('project-grid');
+    const list = activeProjectFilter ? projects.filter(p => matchesProjectFilter(p, activeProjectFilter)) : projects;
+    grid.innerHTML = list.map(p => `
+      <div class="project-card" onclick="openProject(${p.id})">
+        <div class="card-menu-wrap">
+          <button class="card-menu-btn" onclick="event.stopPropagation(); toggleCardMenu(${p.id})" aria-label="Mais opções">&#8942;</button>
+          ${openCardMenuId === p.id ? `
+            <div class="card-menu">
+              <div class="card-menu-item" onclick="event.stopPropagation(); openProjectModal(${p.id})">Editar</div>
+              <div class="card-menu-item danger" onclick="event.stopPropagation(); deleteProject(${p.id})">Excluir</div>
+            </div>` : ''}
+        </div>
+        <p class="name">${p.name}</p>
+        <p class="client">${p.client}</p>
+        <span class="badge status-${p.status}">${statusLabel[p.status]}</span>
+        <div class="row"><span>Prazo</span><span>${p.deadline}</span></div>
+        <div class="row"><span>Recebido</span><span>R$ ${p.received.toLocaleString('pt-BR')} / R$ ${p.total.toLocaleString('pt-BR')}</span></div>
+      </div>
+    `).join('') || '<p style="font-size:13px;color:var(--text-secondary)">Nenhum projeto nessa categoria.</p>';
+  }
+
+  function setProjectFilter(key) {
+    activeProjectFilter = key;
+    renderProjectsList();
+  }
+
+  function openProjectModal(id) {
+    editingProjectId = id || null;
+    openCardMenuId = null;
+    document.getElementById('field-nome').classList.remove('invalid');
+    document.getElementById('field-cliente').classList.remove('invalid');
+
+    if (editingProjectId) {
+      const p = projects.find(pr => pr.id === editingProjectId);
+      document.getElementById('np-nome').value = p.name;
+      document.getElementById('np-cliente').value = p.client;
+      document.getElementById('np-endereco').value = '';
+      document.getElementById('np-inicio').value = '';
+      document.getElementById('np-prazo').value = '';
+      document.getElementById('np-valor').value = p.total;
+      document.getElementById('np-status').value = p.status;
+      document.getElementById('modal-title').textContent = 'Editar projeto';
+      document.getElementById('modal-submit-btn').textContent = 'Salvar alterações';
+    } else {
+      ['np-nome','np-cliente','np-endereco','np-inicio','np-prazo','np-valor'].forEach(fid => document.getElementById(fid).value = '');
+      document.getElementById('np-status').value = 'Orcamento';
+      document.getElementById('modal-title').textContent = 'Novo projeto';
+      document.getElementById('modal-submit-btn').textContent = 'Criar projeto';
+    }
+    document.getElementById('new-project-modal').classList.add('open');
+    renderProjectsList();
+  }
+
+  function closeNewProjectModal() {
+    document.getElementById('new-project-modal').classList.remove('open');
+  }
+
+  function formatDateBr(iso) {
+    if (!iso) return '—';
+    const [y,m,d] = iso.split('-');
+    return `${d}/${m}/${y}`;
+  }
+
+  function submitNewProject() {
+    const nome = document.getElementById('np-nome').value.trim();
+    const cliente = document.getElementById('np-cliente').value.trim();
+    document.getElementById('field-nome').classList.toggle('invalid', nome === '');
+    document.getElementById('field-cliente').classList.toggle('invalid', cliente === '');
+    if (nome === '' || cliente === '') return;
+
+    const valorInput = parseFloat(document.getElementById('np-valor').value);
+    const valor = isNaN(valorInput) ? 0 : valorInput;
+    const status = document.getElementById('np-status').value;
+    const prazo = document.getElementById('np-prazo').value;
+
+    if (editingProjectId) {
+      const p = projects.find(pr => pr.id === editingProjectId);
+      p.name = nome; p.client = cliente; p.status = status; p.total = valor;
+      if (prazo) p.deadline = formatDateBr(prazo);
+      if (status === 'Concluido' && !p.completedYear) p.completedYear = CURRENT_YEAR;
+    } else {
+      projects.push({
+        id: Math.max(...projects.map(p => p.id)) + 1,
+        name: nome, client: cliente, status: status,
+        deadline: formatDateBr(prazo), total: valor, received: 0,
+        fases: criarFases(),
+        payments: [], sessions: [], hoursTotal: 0,
+      });
+    }
+    closeNewProjectModal();
+    renderProjectsList();
+  }
+
+  function deleteProject(id) {
+    const p = projects.find(pr => pr.id === id);
+    if (!confirm(`Excluir "${p.name}"? Essa ação não pode ser desfeita.`)) {
+      openCardMenuId = null; renderProjectsList(); return;
+    }
+    const idx = projects.findIndex(pr => pr.id === id);
+    if (idx > -1) projects.splice(idx, 1);
+    openCardMenuId = null;
+    renderProjectsList();
+  }
+
+  function openProject(id) {
+    currentProjectId = id; activeTab = 'geral';
+    showView('detalhe');
+    renderProjectDetail();
+  }
+
+  function renderProjectDetail() {
+    const p = projects.find(pr => pr.id === currentProjectId);
+    document.getElementById('det-name').textContent = p.name;
+    document.getElementById('det-client').textContent = 'Cliente: ' + p.client;
+    const statusSelect = document.getElementById('det-status');
+    statusSelect.className = 'badge status-' + p.status;
+    statusSelect.innerHTML = Object.keys(statusLabel).map(key =>
+      `<option value="${key}" ${key === p.status ? 'selected' : ''}>${statusLabel[key]}</option>`).join('');
+
+    const tabs = [ ['geral','Visão geral'], ['tarefas','Tarefas'], ['financeiro','Financeiro'], ['horas','Horas'], ['arquivos','Arquivos'] ];
+    document.getElementById('det-tabs').innerHTML = tabs.map(([k,l]) =>
+      `<div class="tab ${activeTab===k?'active':''}" onclick="setTab('${k}')">${l}</div>`).join('');
+
+    const box = document.getElementById('det-tab-content');
+    if (activeTab === 'geral') box.innerHTML = tplGeral(p);
+    else if (activeTab === 'tarefas') box.innerHTML = tplTarefas(p);
+    else if (activeTab === 'financeiro') box.innerHTML = tplFinanceiro(p);
+    else if (activeTab === 'horas') box.innerHTML = tplHoras(p);
+    else if (activeTab === 'arquivos') box.innerHTML = tplArquivosDoProjeto(p);
+  }
+
+  function changeProjectStatus(newStatus) {
+    const p = projects.find(pr => pr.id === currentProjectId);
+    if (newStatus === 'Concluido' && p.status !== 'Concluido') p.completedYear = CURRENT_YEAR;
+    p.status = newStatus;
+    renderProjectDetail();
+  }
+
+  function setTab(k) { activeTab = k; renderProjectDetail(); }
+
+  function tplGeral(p) {
+    const saldo = p.total - p.received;
+    const proxima = p.payments.find(pg => pg.status !== 'Recebido');
+    return `
+      <div class="two-col" style="margin-bottom:14px">
+        <div class="panel">
+          <h3>Saldo do projeto</h3>
+          <p style="font-family:var(--font-display);font-size:20px;font-weight:500;margin:0">R$ ${saldo.toLocaleString('pt-BR')} <span style="font-size:13px;font-weight:400;color:var(--text-secondary)">de R$ ${p.total.toLocaleString('pt-BR')}</span></p>
+          <p style="font-size:12px;color:var(--text-secondary);margin:6px 0 0">R$ ${p.received.toLocaleString('pt-BR')} recebidos até agora</p>
+        </div>
+        <div class="panel">
+          <h3>Horas registradas</h3>
+          <p style="font-family:var(--font-display);font-size:20px;font-weight:500;margin:0">${p.hoursTotal}h</p>
+          <p style="font-size:12px;color:var(--text-secondary);margin:6px 0 0">${p.hoursTotal>0 ? '≈ R$ ' + Math.round(p.total/p.hoursTotal) + '/hora até o momento' : 'Nenhum registro ainda'}</p>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Próxima parcela</h3>
+        ${proxima ? `<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px">
+          <span>R$ ${proxima.valor.toLocaleString('pt-BR')} · prevista para ${proxima.data}</span>
+          <span class="badge pay-${proxima.status}">${proxima.status.toLowerCase()}</span></div>`
+        : `<p style="font-size:13px;color:var(--text-secondary);margin:0">Nenhuma parcela pendente.</p>`}
+      </div>`;
+  }
+
+  function tplTarefas(p) {
+    const cols = [ ['AFazer','A fazer'], ['Fazendo','Fazendo'], ['Concluido','Concluído'] ];
+
+    return p.fases.map((fase, idx) => {
+      const total = fase.tasks.AFazer.length + fase.tasks.Fazendo.length + fase.tasks.Concluido.length;
+      return `
+        <div class="fase-block${fase.collapsed ? ' collapsed' : ''}">
+          <div class="fase-block-header" onclick="toggleFaseCollapse(${p.id}, ${idx})">
+            <span class="fase-block-chevron">${fase.collapsed ? '&#9656;' : '&#9662;'}</span>
+            <span class="fase-block-title">${fase.nome}</span>
+            <span class="fase-block-count">${total}</span>
+          </div>
+          ${!fase.collapsed ? `
+            <div class="fase-block-body">
+              <div class="fase-scroll">
+                <div class="fase-cols">
+                  ${cols.map(([key,label]) => `
+                    <div class="fase-col">
+                      <p class="kcol-title">${label} · ${fase.tasks[key].length}</p>
+                      ${fase.tasks[key].map((task, taskIdx) => {
+                        const taskMenuKey = `${p.id}-${idx}-${key}-${taskIdx}`;
+                        return `
+                        <div class="kcard ${key==='Concluido'?'done':''}">
+                          <div class="menu-wrap-inline task-menu-wrap">
+                            <button class="card-menu-btn" onclick="event.stopPropagation(); toggleTaskMenu('${taskMenuKey}')" aria-label="Mais opções da tarefa">&#8942;</button>
+                            ${openTaskMenuKey === taskMenuKey ? `
+                              <div class="card-menu">
+                                <div class="card-menu-item" onclick="event.stopPropagation(); editTask(${p.id}, ${idx}, '${key}', ${taskIdx})">Editar</div>
+                                <div class="card-menu-item danger" onclick="event.stopPropagation(); deleteTask(${p.id}, ${idx}, '${key}', ${taskIdx})">Excluir</div>
+                              </div>` : ''}
+                          </div>
+                          <p class="title">${task.t}</p>
+                          <div class="meta">
+                            ${task.prio ? `<span>${task.prio}</span>` : '<span></span>'}
+                            ${task.prazo ? `<span>${task.prazo}</span>` : ''}
+                          </div>
+                        </div>`;
+                      }).join('') || '<p class="swimlane-empty">Sem tarefas</p>'}
+                      ${key === 'AFazer' ? '<div class="swimlane-add">+ Adicionar tarefa</div>' : ''}
+                    </div>`).join('')}
+                </div>
+              </div>
+            </div>` : ''}
+        </div>`;
+    }).join('');
+  }
+
+  function tplFinanceiro(p) {
+    const recebido = p.payments.filter(pg=>pg.status==='Recebido').reduce((s,pg)=>s+pg.valor,0);
+    const pendente = p.total - recebido;
+    return `
+      <div class="fin-summary">
+        <div><p>Valor total</p><p>R$ ${p.total.toLocaleString('pt-BR')}</p></div>
+        <div><p>Recebido</p><p>R$ ${recebido.toLocaleString('pt-BR')}</p></div>
+        <div><p>Pendente</p><p>R$ ${pendente.toLocaleString('pt-BR')}</p></div>
+      </div>
+      <table class="pay-table">
+        <thead><tr><th>Valor</th><th>Data prevista</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          ${p.payments.map((pg,i) => `
+            <tr>
+              <td>R$ ${pg.valor.toLocaleString('pt-BR')}</td>
+              <td>${pg.data}</td>
+              <td><span class="badge pay-${pg.status}">${pg.status.toLowerCase()}</span></td>
+              <td style="text-align:right">${pg.status!=='Recebido' ? `<button class="small" onclick="marcarRecebido(${i})">Marcar como recebido</button>` : ''}</td>
+            </tr>`).join('')}
+          ${p.payments.length===0 ? '<tr><td colspan="4" style="color:var(--text-secondary);padding:14px 0">Nenhuma parcela cadastrada.</td></tr>' : ''}
+        </tbody>
+      </table>
+      <div style="margin-top:14px"><button>+ Adicionar parcela</button></div>`;
+  }
+
+  function marcarRecebido(i) {
+    const p = projects.find(pr => pr.id === currentProjectId);
+    p.payments[i].status = 'Recebido';
+    p.received += p.payments[i].valor;
+    renderProjectDetail();
+  }
+
+  function tplHoras(p) {
+    const isRunning = timerState.running && timerState.projectId === p.id;
+    const sessionsHtml = p.sessions.map((s, sIdx) => {
+      const total = totalSessao(s);
+      const menuKey = `${p.id}-${sIdx}`;
+      const single = s.segmentos.length === 1;
+      return `
+        <div class="session-block">
+          <div class="session-row">
+            <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+              <span>${s.data} · ${s.origem}</span>
+              ${single ? `<span class="cat-badge">${s.segmentos[0].categoria}</span>` : ''}
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="color:var(--text-secondary)">${formatDuracao(total)}</span>
+              <div class="menu-wrap-inline">
+                <button class="card-menu-btn" onclick="event.stopPropagation(); toggleSessionMenu('${menuKey}')" aria-label="Mais opções da sessão">&#8942;</button>
+                ${openSessionMenuKey === menuKey ? `
+                  <div class="card-menu">
+                    <div class="card-menu-item" onclick="event.stopPropagation(); openEditSession(${p.id}, ${sIdx})">Editar</div>
+                    <div class="card-menu-item danger" onclick="event.stopPropagation(); deleteSession(${p.id}, ${sIdx})">Excluir</div>
+                  </div>` : ''}
+              </div>
+            </div>
+          </div>
+          ${single && s.segmentos[0].nota ? `<p class="session-note">${s.segmentos[0].nota}</p>` : ''}
+          ${!single ? s.segmentos.map(seg => `
+            <div class="session-subrow">
+              <span class="cat-badge">${seg.categoria}</span>
+              <span style="flex:1">${seg.nota || ''}</span>
+              <span>${formatDuracao(seg.duracaoMin)}</span>
+            </div>`).join('') : ''}
+        </div>`;
+    }).join('') || '<p style="font-size:13px;color:var(--text-secondary)">Nenhum registro ainda.</p>';
+
+    return `
+      <div class="timer-hero">
+        <div>
+          <div class="clock">${isRunning ? formatClock(timerState.elapsed) : '00:00:00'}</div>
+          <div class="sub">${isRunning ? 'Em andamento neste projeto' : 'Cronômetro parado para este projeto'}</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          ${isRunning
+            ? `<button onclick="timerToggleStart()">${timerState.paused ? 'Retomar' : 'Pausar'}</button><button onclick="timerStop()">Parar</button>`
+            : `<button class="primary" onclick="timerStartFor(${p.id}, '${p.name.replace(/'/g,"")}')">Iniciar cronômetro</button>`}
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <h3 style="font-size:13px;font-weight:500;margin:0">Histórico de sessões</h3>
+        <span style="font-size:12px;color:var(--text-secondary)">Total: ${p.hoursTotal}h · ${p.hoursTotal>0 ? 'R$ '+Math.round(p.total/p.hoursTotal)+'/h' : '—'}</span>
+      </div>
+      ${sessionsHtml}
+      <div style="margin-top:14px"><button onclick="openEditSession(${p.id}, null)">+ Adicionar registro manual</button></div>`;
+  }
+
+  function tplArquivosDoProjeto(p) {
+    const linked = files.filter(f => f.projects.includes(p.name));
+    return `
+      <div style="margin-bottom:14px"><button>+ Vincular arquivo existente</button></div>
+      <div class="file-grid">${linked.map(fileCardHtml).join('') || '<p style="font-size:13px;color:var(--text-secondary)">Nenhum arquivo vinculado ainda.</p>'}</div>`;
+  }
+
+  function fileCardHtml(f) {
+    return `
+      <div class="file-card">
+        <div class="file-thumb">
+          ${f.isDoc
+            ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/></svg>'
+            : '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5.5-5.5L4 21"/></svg>'}
+          ${f.fav ? '<span class="star">&#9733;</span>' : ''}
+        </div>
+        <div class="file-info">
+          <p class="fname">${f.name}</p>
+          <p class="fproj">${f.projects.length > 1 ? f.projects.length + ' projetos' : f.projects[0]}</p>
+        </div>
+      </div>`;
+  }
+
+  function renderLibrary() {
+    document.getElementById('tag-row').innerHTML = allTags.map(tag => `
+      <span class="tag-chip ${activeTagFilter===tag?'active':''}" onclick="toggleTag('${tag}')">${tag}</span>
+    `).join('') + `<span class="tag-chip ${activeTagFilter===null?'active':''}" onclick="toggleTag(null)">todas</span>`;
+    const list = activeTagFilter ? files.filter(f => f.tags.includes(activeTagFilter)) : files;
+    document.getElementById('file-grid').innerHTML = list.map(fileCardHtml).join('');
+  }
+  function toggleTag(tag) { activeTagFilter = tag; renderLibrary(); }
+
+  // Timer
+  let timerState = { running: false, paused: false, projectId: null, projectName: null, elapsed: 0, intervalId: null };
+
+  function formatClock(sec) {
+    const h = String(Math.floor(sec/3600)).padStart(2,'0');
+    const m = String(Math.floor((sec%3600)/60)).padStart(2,'0');
+    const s = String(Math.floor(sec%60)).padStart(2,'0');
+    return `${h}:${m}:${s}`;
+  }
+
+  function tickTimer() {
+    if (timerState.running && !timerState.paused) {
+      timerState.elapsed += 1;
+      updateTimerWidget();
+      if (currentProjectId === timerState.projectId && activeTab === 'horas') renderProjectDetail();
+    }
+  }
+
+  function updateTimerWidget() {
+    document.getElementById('timer-clock').textContent = formatClock(timerState.elapsed);
+    document.getElementById('timer-project-label').textContent = timerState.projectId ? timerState.projectName : 'Nenhum projeto ativo';
+    document.getElementById('timer-btn-start').textContent = timerState.running ? (timerState.paused ? 'Retomar' : 'Pausar') : 'Iniciar';
+    document.getElementById('timer-btn-stop').disabled = !timerState.running;
+    hideTimerPicker();
+  }
+
+  function showTimerPicker() {
+    document.getElementById('timer-clock').style.display = 'none';
+    document.getElementById('timer-controls').style.display = 'none';
+    const picker = document.getElementById('timer-picker');
+    picker.style.display = 'block';
+    document.getElementById('timer-project-select').innerHTML =
+      projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  }
+
+  function hideTimerPicker() {
+    document.getElementById('timer-clock').style.display = '';
+    document.getElementById('timer-controls').style.display = '';
+    document.getElementById('timer-picker').style.display = 'none';
+  }
+
+  function confirmTimerStart() {
+    const id = parseInt(document.getElementById('timer-project-select').value, 10);
+    const p = projects.find(pr => pr.id === id);
+    timerStartFor(p.id, p.name);
+  }
+
+  function cancelTimerPicker() {
+    hideTimerPicker();
+  }
+
+  function timerStartFor(id, name) {
+    timerState = { running: true, paused: false, projectId: id, projectName: name, elapsed: 0, intervalId: timerState.intervalId };
+    if (!timerState.intervalId) timerState.intervalId = setInterval(tickTimer, 1000);
+    updateTimerWidget();
+    if (currentProjectId === id && activeTab === 'horas') renderProjectDetail();
+  }
+
+  function timerToggleStart() {
+    if (!timerState.running) {
+      if (currentProjectId) {
+        const p = projects.find(pr => pr.id === currentProjectId);
+        timerStartFor(p.id, p.name);
+      } else {
+        showTimerPicker();
+      }
+      return;
+    }
+    timerState.paused = !timerState.paused;
+    updateTimerWidget();
+    if (currentProjectId === timerState.projectId && activeTab === 'horas') renderProjectDetail();
+  }
+
+  function timerStop() {
+    timerState.running = false; timerState.paused = false;
+    const pid = timerState.projectId;
+    timerState.projectId = null; timerState.projectName = null; timerState.elapsed = 0;
+    updateTimerWidget();
+    if (currentProjectId === pid && activeTab === 'horas') renderProjectDetail();
+  }
+
+  updateTimerWidget();
+</script>
+</body>
+</html>
