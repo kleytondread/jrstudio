@@ -188,6 +188,18 @@ Gera `installer/Output/Setup-JRStudio-{versão}.exe`.
 - **Idioma do instalador**: `BrazilianPortuguese.isl` (já vem embutido no Inno Setup 6, não precisou baixar nada à parte).
 - **Testado de ponta a ponta** (instalação silenciosa via `Setup-JRStudio-0.1.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART`, confirmado arquivo instalado, atalhos criados, entrada em "Aplicativos instalados", e o app abrindo normalmente a partir de `C:\Program Files\J.R Studio\`) antes de considerar pronto. **Nota pra quem for repetir isso via terminal**: rodar flags tipo `/VERYSILENT` no Git Bash quebra — o MSYS2 confunde `/VERYSILENT` com um caminho de arquivo Unix e passa lixo pro instalador. Usar PowerShell (`Start-Process -ArgumentList "/VERYSILENT", ...`) em vez de Bash pra esse tipo de teste.
 
+### Distribuição via GitHub
+
+Repositório: **https://github.com/kleytondread/jrstudio** (público). Estrutura:
+- Repositório git iniciado na raiz de `Projeto JRStudio/` (não dentro de `JRStudio/`) — inclui as pastas `JRStudio/` (código) e `Jess.Docs/` (documentação) juntas, com `.gitignore` na raiz excluindo `**/bin/`, `**/obj/`, `JRStudio/installer/Output/`, `.claude/` (config local do Claude Code) e `imagens_debug/` (capturas usadas só durante depuração, não é entregável).
+- O `Setup-JRStudio-{versão}.exe` **não é versionado no git** (ficaria pesado no histórico à toa) — vai como **asset de uma GitHub Release** a cada versão nova.
+
+**Para publicar uma nova versão** (depois de já ter feito o passo "Publicação" acima):
+```
+gh release create v{versão} "JRStudio/installer/Output/Setup-JRStudio-{versão}.exe" --repo kleytondread/jrstudio --title "J.R Studio v{versão}" --notes "..."
+```
+Isso cria a tag `v{versão}` e a Release com o instalador anexado, pronto pra qualquer pessoa baixar em `github.com/kleytondread/jrstudio/releases`. Não esquecer de `git add`/`commit`/`git push` o código-fonte correspondente a essa versão **antes** de criar a Release, senão a tag fica descolada do código que ela supostamente representa.
+
 ---
 
 ## 3. Mapa rápido: módulo → seção do documento → tela do protótipo
